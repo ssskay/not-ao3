@@ -27,7 +27,13 @@ So this is for anyone with AO3 withdrawal. It puts everything else you read (art
 
 **Demo:** [ssskay.github.io/not-ao3](https://ssskay.github.io/not-ao3/), built from the public-domain books, essays and sample pages in [`demo-shelf/`](demo-shelf).
 
-![A work page](docs/screenshot-work.png)
+![A work page: Precautionary Savings Behavior During the COVID-19 Pandemic](docs/screenshot-work.png)
+
+*A research paper as a work: [Precautionary Savings Behavior During the COVID-19 Pandemic](https://doi.org/10.61089/abej.2025.3.145) by Lena Gan and Sara Kay (2025), reformatted from the published PDF. Each section of the paper is a chapter, starting with the Abstract.*
+
+![A work page: The Holy Bible, World English Bible](docs/screenshot-bible.png)
+
+*The whole World English Bible as one work: 66 chapters (one per book), 751,404 words, with Yahweh, Israel, David, Jesus, Judah and Moses picked out as characters.*
 
 ## What it reads
 
