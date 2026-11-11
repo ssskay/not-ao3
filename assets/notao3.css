@@ -35,3 +35,7 @@
 #workskin .userstuff dl > div { display: contents; }
 #workskin .userstuff dl dt { margin-top: 0; }
 #workskin .userstuff dl dd { margin-left: 0; }
+.nao-report { list-style: none; padding: 0; }
+.nao-report-item { border: 1px solid #ddd; padding: .5em 1em; margin: .75em 0; }
+.nao-issues { list-style: disc; padding-left: 1.5em; margin: .3em 0; }
+.nao-report code, .nao-note code { background: #eee; padding: 0 .3em; }

@@ -50,6 +50,16 @@ Your files go in `shelf/`. If `shelf/` is empty, the demo shelf is used. `shelf/
 
 The built site is plain HTML with relative links. It works opened straight from the folder, on any static host, or in a subfolder.
 
+## Cleaner imports
+
+Web pages and PDFs are the messy formats, so each one is converted once into a Markdown **clean copy** in `shelf/.clean/`, and the site is built from that copy.
+
+- **Edit a clean copy and your version wins.** Fix a line, delete leftover junk, rename a chapter (lines like `<!-- chapter: Methods -->` start chapters). Your edits are kept, even if the original file changes later. Delete the clean copy to make a fresh one.
+- **Better converters, if you install them.** With `pip3 install trafilatura`, web pages go through [Trafilatura](https://github.com/adbar/trafilatura), which is good at cutting share buttons, newsletter boxes and related-article lists. The built-in reader is still used when Trafilatura drops text from a tidy page. PDFs without bookmarks go through [Docling](https://github.com/docling-project/docling) when it's available, which keeps tables as tables. Docling needs a Python with PyTorch: either `pip3 install docling`, or point `docling_python:` in `shelf/_archive.meta` (or the `NOTAO3_DOCLING_PYTHON` environment variable) at a Python that has it. Its first run downloads its models.
+- **Import report.** Every build writes `report.html` (linked in the footer) and a copy in `audits/`, listing works that look off: chapters with almost no words, one giant chapter, leftover menu text, words split in two, running headers repeated on every page.
+
+The demo's clean copies are committed, so the GitHub Pages build doesn't need Trafilatura or Docling.
+
 ## Changing what it says about a file
 
 Put a `.meta` file next to it, named after the file plus `.meta` (`paper.pdf.meta`):

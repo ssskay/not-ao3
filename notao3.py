@@ -252,6 +252,22 @@ def find_heads(lines, pattern):
     return heads
 
 
+def merge_empty_chapters(chapters):
+    """A heading with nothing under it ("Songs of Experience") is a section title: fold it into the next chapter's title."""
+    out, pending = [], ""
+    for t, h in chapters:
+        if len(html_text(h).split()) < 5 and t:
+            pending = f"{pending}: {t}" if pending else t
+            continue
+        if pending:
+            t = f"{pending}: {t}" if t else pending
+            pending = ""
+        out.append((t, h))
+    if pending and out:
+        out[-1] = (out[-1][0], out[-1][1])  # a trailing empty heading is dropped
+    return out or chapters
+
+
 def merge_short_preface(chapters):
     """[("Preface", html), (t1, h1), ...] -> preface folded into chapter 1 when it's only a line or two."""
     if len(chapters) > 2 and chapters[0][0] == "Preface" and len(html_text(chapters[0][1]).split()) < SHORT_PREFACE:
@@ -267,6 +283,12 @@ def read_text(path, raw=None):
     text = text.replace("\r\n", "\n")
     lines = text.split("\n")
     heads = find_heads(lines, TXT_CHAPTER)
+    # one kind of heading per book: "CHAPTER 89" books often have "I. A Fast-Fish..." lists inside chapters
+    kind = lambda i: ("word" if re.match(r"\s*(chapter|part|book)\b", lines[i], re.I) else
+                      "play" if re.match(r"\s*(act|actus|scena|scoena|scene)\b", lines[i], re.I) else "roman")
+    if heads:
+        main = Counter(kind(i) for i in heads).most_common(1)[0][0]
+        heads = [i for i in heads if kind(i) == main]
     if len(heads) < 2:
         caps = find_heads(lines, CAPS_TITLE)   # stories or poems titled in capitals
         if len(caps) >= 3:
@@ -297,7 +319,7 @@ def read_text(path, raw=None):
             if title.isupper():
                 title = smart_title(title)
             doc.chapters.append((title, text_to_html("\n".join(body_lines))))
-        doc.chapters = merge_short_preface(doc.chapters)
+        doc.chapters = merge_empty_chapters(merge_short_preface(doc.chapters))
     else:
         doc.chapters.append(("", text_to_html(text)))
     return doc
@@ -589,6 +611,7 @@ def read_pdf(path):
     except Exception as ex:
         log.debug("%s: no usable outline (%s)", path.name, ex)
     marks = sorted({(n, t) for t, n in marks})
+    doc.from_outline = len(marks) >= 2
     if len(marks) >= 2:
         if marks[0][0] > 0:
             doc.chapters.append(("Front Matter", pdf_paragraphs("\n\n".join(pages[:marks[0][0]]))))
@@ -608,6 +631,244 @@ def read_pdf(path):
 
 
 READERS = {"Markdown": read_markdown, "Text": read_text, "HTML": read_html, "EPUB": read_epub, "PDF": read_pdf}
+
+
+# ---------------------------------------------------------------- clean copies (convert once, keep edits)
+
+CLEAN_DIR = ".clean"
+CLEANED_FORMATS = {"HTML", "PDF"}   # the messy ones; Markdown, text and EPUB are read directly
+CFG = {}                            # the shelf's _archive.meta, set by build()
+CHAPTER_MARK = re.compile(r"^<!-- chapter: (.*?) -->\s*$", re.M)
+DOCLING_SCRIPT = ("import sys\nfrom docling.document_converter import DocumentConverter\n"
+                  "print(DocumentConverter().convert(sys.argv[1]).document.export_to_markdown())")
+
+
+def md_to_html(md):
+    try:
+        import markdown
+        return clean_html(markdown.markdown(md, extensions=["extra", "sane_lists"]))[0]
+    except ImportError:
+        return text_to_html(md)
+
+
+def split_md_chapters(md, numbered_only=False):
+    """Markdown -> [(title, markdown)]. Splits at '#' headings (used twice or more), else at '##'.
+    numbered_only: for converted PDFs, split only at numbered sections ("## 2. Methods") and named ones
+    (Abstract, References...), and keep every other heading inside its chapter."""
+    lines, in_code, heads = md.split("\n"), False, {1: [], 2: []}
+    for i, line in enumerate(lines):
+        if line.startswith("```"):
+            in_code = not in_code
+        m = None if in_code else re.match(r"^(#{1,2}) (\S.*)$", line)
+        if m:
+            heads[len(m.group(1))].append(i)
+    level = heads[1] if len(heads[1]) >= 2 else heads[2]
+    if numbered_only:
+        def top(i):
+            t = re.sub(r"^#+\s*", "", lines[i]).strip()
+            return PDF_SECTION.match(t) and not PDF_SUBSECTION.match(t)
+        picked = [i for i in level if top(i)]
+        if len(picked) >= 3:
+            for i in level:   # the other headings become sub-headings inside their chapter
+                if i not in picked:
+                    lines[i] = "###" + lines[i].lstrip("#")
+            level = picked
+    if len(level) < 2:
+        return [("", md)]
+    out = []
+    pre = "\n".join(lines[:level[0]]).strip()
+    if pre:
+        out.append(("Preface", pre))
+    for n, start in enumerate(level):
+        end = level[n + 1] if n + 1 < len(level) else len(lines)
+        title = re.sub(r"^#+\s*", "", lines[start]).strip()
+        title = re.sub(r"^\d{1,2}\.?\s+(?=[A-Z])", "", title).rstrip(":")
+        out.append((title, "\n".join(lines[start + 1:end]).strip()))
+    if len(out) > 2 and out[0][0] == "Preface" and len(out[0][1].split()) < SHORT_PREFACE:
+        out = [(out[1][0], out[0][1] + "\n\n" + out[1][1])] + out[2:]
+    return out
+
+
+def rejoin_split_words(text):
+    """'Healt h' -> 'Health' when the joined word appears elsewhere in the same text (PDF kerning artifacts)."""
+    counts = Counter(w.lower() for w in re.findall(r"[A-Za-z]+", text))
+    known = COMMON | STOP
+
+    def fix(m):
+        a, b = m.group(1), m.group(2)
+        j = (a + b).lower()
+        if counts[j] >= 3 or (counts[j] >= 1 and (a.lower() not in known or b.lower() not in known) and
+                              not (a.lower() in known and b.lower() in known)):
+            return a
+        return m.group(0)
+    text = re.sub(r"\b([A-Za-z]{2,}) (?=([a-z]{1,12})\b)", fix, text)
+    return re.sub(r"\b([b-zB-HJ-Z]) (?=([a-z]{2,12})\b)", fix, text)
+
+
+def drop_repeated_lines(md):
+    """Running headers that survive conversion (a journal's logo text on every page): short lines repeated 4+ times."""
+    lines = md.split("\n")
+    short = Counter(l.strip() for l in lines if l.strip() and len(l.split()) <= 4 and not l.lstrip().startswith(("|", "#", "-", "*", "<")))
+    repeated = {l for l, n in short.items() if n >= 4 and not re.fullmatch(r"\d+\.?", l)}
+    if repeated:
+        log.debug("dropped repeated lines: %s", ", ".join(sorted(repeated))[:200])
+    return "\n".join(l for l in lines if l.strip() not in repeated)
+
+
+def tidy_markdown(md, title=""):
+    md = re.sub(r"(?m)^\s*\[?\s*(?:←|&larr;)\s*Back to [^\n]{0,80}$\n?", "", md)          # "← Back to ..." links
+    md = re.sub(r"\[([^\]]+)\]\((?!https?:|mailto:|#)[^)]*\)", r"\1", md)                # relative links lead nowhere here
+    md = re.sub(r"(?m)^\s*<!-- image -->\s*$\n?", "", md)                                 # docling image placeholders
+    m = re.match(r"\s*#{1,2} (.+)\n", md)
+    if m and title and m.group(1).strip().lower() in title.lower():
+        md = md[m.end():]                                                                 # headline repeating the title
+    return re.sub(r"\n{3,}", "\n\n", md).strip()
+
+
+def convert_html(path):
+    """Saved web page -> (meta, [(title, markdown)], converter). Trafilatura when installed, else the built-in reader."""
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    head = read_html(path)          # head metadata (and the fallback body)
+    meta = dict(head.meta)
+    try:
+        import trafilatura
+        md = trafilatura.extract(raw, output_format="markdown", include_formatting=True, include_links=True,
+                                 include_tables=True, include_images=False, include_comments=False, favor_recall=True)
+        if md and len(md.split()) >= 40:
+            tm = trafilatura.extract_metadata(raw)
+            for k, v in (("title", tm.title), ("author", tm.author), ("fandom", tm.sitename),
+                         ("summary", tm.description), ("url", tm.url)):
+                if v and not meta.get(k):
+                    meta[k] = v
+            if tm.tags and not meta.get("tags"):
+                meta["tags"] = ", ".join(tm.tags)
+            md = tidy_markdown(md, meta.get("title", ""))
+            # Trafilatura is best on cluttered pages; on tidy ones it sometimes drops lines (link rows, small print).
+            # Keep the built-in result when it's junk-free and trafilatura missed some of its sentences.
+            builtin_text = " ".join(html_text(h) for _, h in head.chapters)
+            sents = [x for x in re.split(r"(?<=[.!?])\s+", builtin_text) if len(x.split()) >= 6]
+            flat = re.sub(r"\s+", " ", re.sub(r"[*_`#>\[\]]|\]\([^)]*\)", " ", md))
+            found = sum(1 for x in sents if re.sub(r"\s+", " ", x)[:40] in flat)
+            coverage = found / len(sents) if sents else 1.0
+            junk = len(NAV_JUNK.findall(builtin_text))
+            if coverage < 0.97 and junk == 0:
+                log.info("%s: built-in reader kept more of this page (trafilatura got %.0f%% of it)", path.name, coverage * 100)
+                return meta, [(t, raw_html_block(h)) for t, h in head.chapters], "built-in"
+            return meta, split_md_chapters(md), f"trafilatura {trafilatura.__version__}"
+        log.info("%s: trafilatura found too little text, using the built-in reader", path.name)
+    except ImportError:
+        log.debug("trafilatura not installed (pip3 install trafilatura); using the built-in HTML reader")
+    except Exception as ex:
+        log.warning("%s: trafilatura failed (%s); using the built-in reader", path.name, ex)
+    return meta, [(t, raw_html_block(h)) for t, h in head.chapters], "built-in"
+
+
+def raw_html_block(h):
+    """Keep already-clean HTML inside a Markdown clean copy (one line, so Markdown passes it through untouched)."""
+    return '<div class="nao-raw">' + re.sub(r"\s*\n\s*", " ", h) + "</div>"
+
+
+def docling_markdown(path):
+    try:
+        from docling.document_converter import DocumentConverter
+        import importlib.metadata as im
+        md = DocumentConverter().convert(str(path)).document.export_to_markdown()
+        return md, f"docling {im.version('docling')}"
+    except ImportError:
+        pass
+    py = CFG.get("docling_python") or os.environ.get("NOTAO3_DOCLING_PYTHON")
+    if not py:
+        log.debug("docling not installed; using the built-in PDF reader")
+        return None, None
+    import subprocess
+    log.info("%s: converting with docling via %s (first run downloads its models)", path.name, py)
+    r = subprocess.run([py, "-c", DOCLING_SCRIPT, str(path)], capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0:
+        log.warning("%s: docling failed: %s", path.name, r.stderr.strip().splitlines()[-1:] or r.returncode)
+        return None, None
+    ver = subprocess.run([py, "-c", "import importlib.metadata as m; print(m.version('docling'))"],
+                         capture_output=True, text=True).stdout.strip()
+    return r.stdout, f"docling {ver}"
+
+
+def convert_pdf(path):
+    """PDF -> (meta, [(title, markdown)], converter). Docling when available (keeps tables), else the built-in reader."""
+    base = read_pdf(path)
+    meta = dict(base.meta)
+    md, conv = None, None
+    if getattr(base, "from_outline", False):
+        # the PDF's own bookmarks are the most reliable chapter list (books); docling is for papers and reports
+        return meta, [(t, raw_html_block(rejoin_split_words(h))) for t, h in base.chapters], "built-in (bookmarks)"
+    try:
+        md, conv = docling_markdown(path)
+    except Exception as ex:
+        log.warning("%s: docling failed (%s); using the built-in reader", path.name, ex)
+    if md and len(md.split()) >= 40:
+        if not meta.get("title"):
+            m = re.search(r"(?m)^#{1,2} (.+)$", md)
+            if m and not PDF_SECTION.match(m.group(1)):
+                meta["title"] = m.group(1).strip()
+        md = rejoin_split_words(drop_repeated_lines(tidy_markdown(md, meta.get("title", ""))))
+        return meta, split_md_chapters(md, numbered_only=True), conv
+    chapters = [(t, raw_html_block(rejoin_split_words(h))) for t, h in base.chapters]
+    return meta, chapters, "built-in"
+
+
+CONVERTERS = {"HTML": convert_html, "PDF": convert_pdf}
+NAV_JUNK = re.compile(r"(?:←|&larr;)\s*back to|skip to (?:main )?content|subscribe (?:to|now)|sign up for|accept (?:all )?cookies"
+                      r"|share (?:this|on)|follow us|related (?:articles|posts|stories)|advertisement|all rights reserved"
+                      r"|read more|log ?in to", re.I)
+META_KEYS = ("title", "author", "fandom", "summary", "published", "url", "tags", "language")
+
+
+def clean_copy_path(path, shelf):
+    return shelf / CLEAN_DIR / (path.relative_to(shelf).as_posix() + ".md")
+
+
+def doc_from_clean(meta, body):
+    doc = Doc()
+    doc.meta = {k: v for k, v in meta.items() if not k.startswith("clean_")}
+    parts = CHAPTER_MARK.split(body)
+    # parts: [before, title1, body1, title2, body2, ...]
+    for i in range(1, len(parts), 2):
+        doc.chapters.append((parts[i].strip(), md_to_html(parts[i + 1].strip())))
+    if not doc.chapters:
+        doc.chapters.append(("", md_to_html(body)))
+    return doc
+
+
+def read_cleaned(path, shelf, fmt):
+    """Read a messy format through its clean copy in shelf/.clean/: converted once, then reused.
+    If you edit the clean copy, your version is used from then on (even if the original changes)."""
+    cp = clean_copy_path(path, shelf)
+    rel = path.relative_to(shelf).as_posix()
+    src_sha = hashlib.sha1(path.read_bytes()).hexdigest()[:16]
+    if cp.exists():
+        meta, body = split_front_matter(cp.read_text(encoding="utf-8"))
+        if meta.get("clean_body_sha") and hashlib.sha1(body.encode()).hexdigest()[:16] != meta["clean_body_sha"]:
+            log.info("%s: using your edited clean copy", rel)
+            return doc_from_clean(meta, body), cp, True
+        if meta.get("clean_source_sha") == src_sha:
+            return doc_from_clean(meta, body), cp, False
+        log.info("%s: the original changed, making a new clean copy", rel)
+    t0 = time.time()
+    meta, chapters, conv = CONVERTERS[fmt](path)
+    body = (f"<!-- Clean copy of {rel}, made by {conv}. Edit anything below; your edits are kept. "
+            f"Lines like 'chapter: ...' start a chapter. -->\n\n"
+            + "\n\n".join(f"<!-- chapter: {t} -->\n\n{m.strip()}\n" for t, m in chapters))
+    front = {k: re.sub(r"\s+", " ", str(meta[k])).strip() for k in META_KEYS if meta.get(k)}
+    front.update(clean_source=rel, clean_converter=conv, clean_source_sha=src_sha,
+                 clean_body_sha=hashlib.sha1(body.encode()).hexdigest()[:16])
+    cp.parent.mkdir(parents=True, exist_ok=True)
+    cp.write_text("---\n" + "".join(f"{k}: {v}\n" for k, v in front.items()) + "---\n" + body, encoding="utf-8")
+    log.info("%s: clean copy made with %s in %.1fs -> %s", rel, conv, time.time() - t0, cp.relative_to(shelf))
+    return doc_from_clean(front, body), cp, False
+
+
+def read_any(path, shelf, fmt):
+    if fmt in CLEANED_FORMATS and not CFG.get("no_clean_copies"):
+        return read_cleaned(path, shelf, fmt)
+    return READERS[fmt](path), None, False
 
 
 # ---------------------------------------------------------------- automatic tags
@@ -795,7 +1056,7 @@ def scan_shelf(shelf):
 def load_work(path, shelf):
     fmt = FORMATS[path.suffix.lower()]
     t0 = time.time()
-    doc = READERS[fmt](path)
+    doc, clean_copy, edited = read_any(path, shelf, fmt)
     meta = {}
     meta.update({k: v for k, v in doc.meta.items() if v})        # what the file says about itself
     file_fandom = meta.pop("fandom", "")                         # a page's site name only counts at the top of the shelf
@@ -846,6 +1107,9 @@ def load_work(path, shelf):
         "url": meta.get("url") or "",
         "format": fmt,
         "source": rel,
+        "clean_copy": clean_copy.relative_to(shelf).as_posix() if clean_copy else "",
+        "clean_edited": edited,
+        "title_from_filename": not meta.get("title"),
         "file": path,
         "chapters": [{"title": t or (title if len(chapters) == 1 else f"Chapter {i + 1}"), "html": h}
                      for i, (t, h) in enumerate(chapters)],
@@ -883,6 +1147,47 @@ def add_auto_tags(works):
             w["freeforms"] += length_tags(w["words"], len(w["chapters"]))
         w["freeforms"] += [t for t in w["extra_tags"] if t not in w["freeforms"]]
         del w["_keywords"]
+
+
+# ---------------------------------------------------------------- cleanup report
+
+def check_work(w):
+    """Things that usually mean an import came out messy. Returns [(chapter number or 0, message)]."""
+    issues = []
+    chs = w["chapters"]
+    texts = [html_text(c["html"]) for c in chs]
+    full = "\n".join(texts)
+    messy = w["format"] in ("PDF", "HTML")
+    if len(chs) == 1 and w["words"] > 15000 and w["format"] != "Markdown":
+        issues.append((0, f"One chapter of {w['words']:,} words: no chapter breaks were found."))
+    for i, (c, t) in enumerate(zip(chs, texts), 1):
+        n = len(t.split())
+        if len(chs) > 1 and n < 15:
+            issues.append((i, f"Chapter {i} ({c['title'] or 'untitled'}) has only {n} words."))
+        if messy and c["title"] in ("Preface", "Front Matter") and n > 1500:
+            issues.append((i, f"Chapter {i} is a {n:,}-word '{c['title']}': the first real heading was probably missed."))
+    short_lines = "\n".join(l for l in full.split("\n") if len(l.split()) <= 12)
+    junk = sorted({m.group(0).strip() for m in NAV_JUNK.finditer(short_lines)}) if messy else []
+    if junk:
+        issues.append((0, "Leftover page furniture: " + ", ".join(f"“{j}”" for j in junk[:5]) + "."))
+    counts = Counter(x.lower() for x in re.findall(r"[A-Za-z]+", full))
+    splits = sorted({f"{a} {b}" for a, b in re.findall(r"\b([A-Za-z]{2,}) ([a-z]{1,6})\b", full)
+                     if counts[(a + b).lower()] >= 2 and b.lower() not in COMMON | STOP and len(b) <= 3})
+    if len(splits) >= 3 and messy:
+        issues.append((0, f"{len(splits)} words look split in two, like " + ", ".join(f"“{x}”" for x in splits[:4]) + "."))
+    lines = Counter(l.strip() for t in texts for l in t.split("\n") if 3 <= len(l.split()) <= 15)
+    repeats = [l for l, k in lines.items() if k >= 4 and not re.match(r"^(chapter|psalm|act|scene)\b", l, re.I)]
+    if repeats and w["format"] in ("PDF", "HTML"):
+        issues.append((0, f"Line repeated {lines[repeats[0]]} times (a running header?): “{repeats[0][:60]}”."))
+    if w.get("title_from_filename") and messy:
+        issues.append((0, "No title found in the file, so the file name is used."))
+    return issues
+
+
+def fix_hint(w):
+    if w.get("clean_copy"):
+        return f"Fix it in <code>{e(w['clean_copy'])}</code> (your edits are kept)."
+    return f"Fix it in the file, or add <code>{e(Path(w['source']).name)}.meta</code> next to it."
 
 
 # ---------------------------------------------------------------- page building
@@ -956,7 +1261,8 @@ class Site:
             "<div id=\"footer\" role=\"contentinfo\" class=\"region\"><ul class=\"navigation actions\" role=\"navigation\">"
             "<li class=\"module group\"><h4 class=\"heading\">About</h4><ul class=\"menu\">"
             f"<li>Built with <a href=\"{REPO_URL}\">{e(SITE_NAME)}</a>, a reader that shows files in an AO3-style layout.</li>"
-            "<li>Every work belongs to its author. Work pages link to the original where there is one.</li></ul></li>"
+            "<li>Every work belongs to its author. Work pages link to the original where there is one.</li>"
+            f"<li><a href=\"{r('report.html')}\">Import report</a></li></ul></li>"
             "<li class=\"module group\"><h4 class=\"heading\">Credits</h4><ul class=\"menu\">"
             "<li>Not affiliated with the Organization for Transformative Works or the Archive of Our Own.</li>"
             "<li>Stylesheet from <a href=\"https://github.com/otwcode/otwarchive\">otwcode/otwarchive</a> (GPL-2.0-or-later).</li>"
@@ -1219,6 +1525,34 @@ class Site:
                f"<p><small>Saved from {e(self.name)}.</small></p></body></html>")
         (self.out / path).write_text(doc, encoding="utf-8")
 
+    def build_report(self):
+        here = "report.html"
+        self.issues = {w["id"]: check_work(w) for w in self.works}
+        flagged = [w for w in self.works if self.issues[w["id"]]]
+        rows = []
+        for w in flagged:
+            items = "".join(f"<li>{e(msg)}"
+                            + (f" <a href=\"{self.rel(here, self.work_url(w, ch))}\">Go to chapter {ch}</a>" if ch else "")
+                            + "</li>" for ch, msg in self.issues[w["id"]])
+            rows.append(f"<li class=\"nao-report-item\"><h4 class=\"heading\"><a href=\"{self.rel(here, self.work_url(w))}\">"
+                        f"{e(w['title'])}</a> <span class=\"nao-format\">{e(w['format'])}</span></h4>"
+                        f"<ul class=\"nao-issues\">{items}</ul><p class=\"nao-note\">{fix_hint(w)}</p></li>")
+        converters = Counter((w.get("clean_copy") and "clean copy") or w["format"] for w in self.works)
+        body = ("<h2 class=\"heading\">Import Report</h2>"
+                f"<p>{len(self.works):,} works checked, {len(flagged):,} with something worth a look. "
+                "These are guesses from the text, so some flags will be fine as they are.</p>"
+                + (f"<ul class=\"nao-report\">{''.join(rows)}</ul>" if rows else "<p>Nothing flagged.</p>")
+                + "<p class=\"nao-note\">Web pages and PDFs are converted once into Markdown clean copies in "
+                  "<code>shelf/.clean/</code>. Edit a clean copy and your version is used from then on.</p>")
+        self.write(here, "Import Report", body, here, "works-index")
+        lines = [f"# Import report {dt.datetime.now():%Y-%m-%d %H:%M}", "",
+                 f"{len(self.works)} works checked, {len(flagged)} flagged.", ""]
+        for w in flagged:
+            lines.append(f"- **{w['title']}** ({w['source']})")
+            lines += [f"  - {msg}" for _, msg in self.issues[w["id"]]]
+        self.report_md = "\n".join(lines) + "\n"
+        log.info("import report: %d of %d works flagged (report.html)", len(flagged), len(self.works))
+
     def build_assets(self):
         dst = self.out / "assets"
         if dst.exists():
@@ -1235,6 +1569,7 @@ class Site:
         self.build_tags()
         self.build_media()
         self.build_me()
+        self.build_report()
         (self.out / ".nojekyll").write_text("")
         catalog = [{k: v for k, v in w.items() if k not in ("chapters", "file", "extra_tags", "auto_tags")}
                    | {"chapters": [c["title"] for c in w["chapters"]], "url_path": self.work_url(w)} for w in self.works]
@@ -1258,6 +1593,8 @@ def build(shelf, out, strict=False):
     cfg_file = shelf / "_archive.meta"
     cfg = parse_meta_text(cfg_file.read_text(encoding="utf-8")) if cfg_file.exists() else {}
     cfg["noindex"] = (cfg.get("noindex") or "").lower() in ("yes", "true", "1")
+    CFG.clear()
+    CFG.update(cfg)
     log.info("shelf: %s", shelf)
     works, failed = [], []
     for p in scan_shelf(shelf):
@@ -1275,7 +1612,14 @@ def build(shelf, out, strict=False):
     if tmp.exists():
         shutil.rmtree(tmp)
     tmp.mkdir(parents=True)
-    Site(works, tmp, cfg).build()
+    site = Site(works, tmp, cfg)
+    site.build()
+    try:
+        audits = ROOT / "audits"
+        audits.mkdir(exist_ok=True)
+        (audits / f"{dt.datetime.now():%Y-%m-%d-%H%M%S}-import-report.md").write_text(site.report_md, encoding="utf-8")
+    except OSError as ex:
+        log.warning("couldn't write the import report to audits/ (%s)", ex)
     if out.exists():
         shutil.rmtree(out)
     tmp.rename(out)
@@ -1373,6 +1717,14 @@ def selftest():
             "<img src=\"x.png\" onerror=\"alert(1)\"></p>" + "<p>filler words here for length.</p>" * 10
             + "<script>steal()</script><iframe src=\"https://example.com\"></iframe></article></body></html>")
         (shelf / ".hidden.md").write_text("# should be skipped\n")
+        (shelf / "Notes" / "cluttered-news.html").write_text(
+            "<html><head><title>Town Opens New Library</title><meta property='og:site_name' content='Example Gazette'></head><body>"
+            "<article><h1>Town Opens New Library</h1><div class='share'>Share this</div><div>Share on Facebook</div>"
+            + "".join(f"<p>The new library on Main Street opened on Saturday with a reading room, sentence {i} of the story.</p>"
+                      for i in range(12))
+            + "<div class='promo'>Sign up for our newsletter</div><div>Related articles</div>"
+              "<ul><li><a href='/a'>Mayor visits school</a></li><li><a href='/b'>Bakery wins award</a></li></ul>"
+              "<div>Advertisement</div></article></body></html>")
         out = td / "site"
         works, failed = build(shelf, out)
         by = {w["title"]: w for w in works}
@@ -1432,6 +1784,32 @@ def selftest():
         missing = [i for i in imgs if i != "none" and not (out / "assets" / i).exists()]
         check("stylesheet images all present", not missing, ", ".join(missing))
         check("no AO3 logo files referenced", "ao3_logos" not in css and "logo.png" not in css)
+        clean_dir = shelf / CLEAN_DIR
+        check("clean copies made for web pages and PDFs", (clean_dir / "Notes" / "evil.html.md").exists()
+              and any(clean_dir.rglob("*.pdf.md")), ", ".join(p.name for p in clean_dir.rglob("*.md")))
+        try:
+            import trafilatura  # noqa: F401
+            news = by.get("Town Opens New Library")
+            ntext = " ".join(html_text(c["html"]) for c in news["chapters"]) if news else ""
+            check("cluttered page: share buttons, newsletter and related links removed",
+                  news and "Sign up" not in ntext and "Related articles" not in ntext and "sentence 11" in ntext, ntext[:80])
+        except ImportError:
+            log.info("trafilatura not installed: skipping the cluttered-page check")
+        report = out / "report.html"
+        check("import report page written", report.exists() and "Import Report" in report.read_text())
+        # edits to a clean copy are kept, even after the original changes
+        cp = clean_dir / "Notes" / "evil.html.md"
+        cp.write_text(cp.read_text() + "\nEDITED-BY-SELFTEST\n")
+        (shelf / "Notes" / "evil.html").write_text((shelf / "Notes" / "evil.html").read_text() + "<!-- changed -->")
+        fg = clean_dir / "field-guide-to-ao3-tags.html.md"
+        old_sha = split_front_matter(fg.read_text())[0].get("clean_source_sha")
+        (shelf / "field-guide-to-ao3-tags.html").write_text((shelf / "field-guide-to-ao3-tags.html").read_text() + "<!-- changed -->")
+        works2, _ = build(shelf, out)
+        ev2 = next((w for w in works2 if w["title"] == "Evil Page"), None)
+        check("an edited clean copy is used, and kept when the original changes",
+              ev2 and "EDITED-BY-SELFTEST" in ev2["chapters"][-1]["html"] and ev2["clean_edited"])
+        check("an unedited clean copy is remade when the original changes",
+              split_front_matter(fg.read_text())[0].get("clean_source_sha") != old_sha)
         raw_html = [p for p in out.rglob("download/*") if p.name == "evil.html"]
         check("saved web pages are not re-published with their scripts", not raw_html)
         dl = list(out.glob("works/*/download/*.html"))
