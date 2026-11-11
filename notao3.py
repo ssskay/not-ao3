@@ -144,8 +144,8 @@ class Cleaner(HTMLParser):
             href = a["href"].strip()
             if re.match(r"(?i)^(https?:|mailto:)", href):
                 keep = f' href="{e(href)}" rel="nofollow noopener" target="_blank"'
-            elif href.startswith("#"):
-                keep = ""
+            else:
+                return  # in-page or relative links lead nowhere once the text is moved: keep the words, drop the link
         if tag == "img":
             src = (a.get("src") or "").strip()
             if not re.match(r"(?i)^https?://", src):
@@ -174,7 +174,7 @@ class Cleaner(HTMLParser):
                 self.skip -= 1
             return
         if tag not in ALLOWED or tag in VOID or tag not in self.stack:
-            return
+            return  # also covers <a> tags that were dropped on the way in
         while self.stack:
             t = self.stack.pop()
             self.out.append(f"</{t}>")
@@ -205,9 +205,17 @@ def clean_html(fragment):
 
 
 def text_to_html(text):
-    """Plain text -> paragraphs. Wrapped lines inside a paragraph are joined."""
-    paras = [re.sub(r"\s*\n\s*", " ", p).strip() for p in re.split(r"\n\s*\n", text)]
-    return "".join(f"<p>{e(p, quote=False)}</p>" for p in paras if p)
+    """Plain text -> paragraphs. Wrapped prose lines are joined; verse (short lines) keeps its line breaks."""
+    out = []
+    for p in re.split(r"\n\s*\n", text):
+        lines = [l.strip() for l in p.strip().split("\n") if l.strip()]
+        if not lines:
+            continue
+        if len(lines) >= 2 and max(len(l) for l in lines) < 60:
+            out.append("<p>" + "<br>".join(e(l, quote=False) for l in lines) + "</p>")
+        else:
+            out.append(f"<p>{e(' '.join(lines), quote=False)}</p>")
+    return "".join(out)
 
 
 def html_text(fragment):
@@ -224,7 +232,27 @@ class Doc:
         self.chapters = []
 
 
-TXT_CHAPTER = re.compile(r"^\s*((?:chapter|part|book)\s+[\divxlc]+\b.*|[IVXLC]+\.\s+\S.*|[IVXLC]+\s*)$", re.I)
+TXT_CHAPTER = re.compile(r"^\s*((?:chapter|part|book|act|actus)\s+[\divxlc]+\b.*|(?:actus|scena|scoena|scene)\s+\w+.*|[IVXLC]+\.\s+\S.*|[IVXLC]+\s*)$", re.I)
+CAPS_TITLE = re.compile(r"^\s*[A-Z][A-Z0-9 ,.'’!?:;\-]{3,110}$")
+SHORT_PREFACE = 80  # words; a shorter bit before the first heading joins chapter 1 instead of being its own chapter
+
+
+def find_heads(lines, pattern):
+    heads = []
+    for i, line in enumerate(lines):
+        before = i == 0 or not lines[i - 1].strip()
+        after = i + 1 >= len(lines) or not lines[i + 1].strip()
+        if line.strip() and len(line.strip()) < 112 and before and after and pattern.match(line):
+            heads.append(i)
+    return heads
+
+
+def merge_short_preface(chapters):
+    """[("Preface", html), (t1, h1), ...] -> preface folded into chapter 1 when it's only a line or two."""
+    if len(chapters) > 2 and chapters[0][0] == "Preface" and len(html_text(chapters[0][1]).split()) < SHORT_PREFACE:
+        (_, pre), (t1, h1) = chapters[0], chapters[1]
+        return [(t1, pre + h1)] + chapters[2:]
+    return chapters
 
 
 def read_text(path, raw=None):
@@ -233,12 +261,11 @@ def read_text(path, raw=None):
     doc.meta, text = split_front_matter(text)
     text = text.replace("\r\n", "\n")
     lines = text.split("\n")
-    heads = []
-    for i, line in enumerate(lines):
-        before = i == 0 or not lines[i - 1].strip()
-        after = i + 1 >= len(lines) or not lines[i + 1].strip()
-        if line.strip() and len(line.strip()) < 90 and before and after and TXT_CHAPTER.match(line):
-            heads.append(i)
+    heads = find_heads(lines, TXT_CHAPTER)
+    if len(heads) < 2:
+        caps = find_heads(lines, CAPS_TITLE)   # stories or poems titled in capitals
+        if len(caps) >= 3:
+            heads = caps
     if len(heads) >= 2:
         if heads[0] > 0 and "\n".join(lines[:heads[0]]).strip():
             doc.chapters.append(("Preface", text_to_html("\n".join(lines[:heads[0]]))))
@@ -253,17 +280,39 @@ def read_text(path, raw=None):
                 if cand.isupper() and len(cand) < 80:
                     title = f"{title}. {cand.title()}"
                     body_lines = body_lines[first + 1:]
-            doc.chapters.append((tidy_chapter_title(title), text_to_html("\n".join(body_lines))))
+            title = tidy_chapter_title(title)
+            # "CHAPTER 1" with the real title on its own short line underneath ("Loomings.")
+            first = next((j for j, l in enumerate(body_lines) if l.strip()), None)
+            if not title and first is not None:
+                cand = body_lines[first].strip()
+                nxt = body_lines[first + 1].strip() if first + 1 < len(body_lines) else ""
+                if len(cand) < 60 and not nxt:
+                    title = cand.rstrip(".")
+                    body_lines = body_lines[first + 1:]
+            if title.isupper():
+                title = smart_title(title)
+            doc.chapters.append((title, text_to_html("\n".join(body_lines))))
+        doc.chapters = merge_short_preface(doc.chapters)
     else:
         doc.chapters.append(("", text_to_html(text)))
     return doc
 
 
+SMALL_WORDS = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "with"}
+
+
+def smart_title(t):
+    words = t.lower().split()
+    return " ".join(w if (i and w in SMALL_WORDS) else w[:1].upper() + w[1:] for i, w in enumerate(words))
+
+
 def tidy_chapter_title(t):
+    """'CHAPTER IV. The Purple Wig' -> 'The Purple Wig'; a bare 'CHAPTER 4' -> '' (shown as Chapter N)."""
     t = re.sub(r"\s+", " ", t).strip()
-    t = re.sub(r"^(?:chapter|part|book)\s+[\divxlc]+\s*[.:\-–—]?\s*", "", t, flags=re.I) or t
-    t = re.sub(r"^[IVXLC]+\.\s+", "", t) or t
-    return t
+    t = re.sub(r"^(?:chapter|part|book)\s+[\divxlc]+\s*[.:\-–—]?\s*", "", t, flags=re.I)
+    t = re.sub(r"^[IVXLC]+\.\s+", "", t)
+    t = t.rstrip(".") if t.count(".") == 1 else t
+    return "" if re.fullmatch(r"[IVXLC\d]+\.?", t or "") else t
 
 
 def read_markdown(path):
@@ -299,6 +348,7 @@ def read_markdown(path):
         for n, start in enumerate(level):
             end = level[n + 1] if n + 1 < len(level) else len(lines)
             doc.chapters.append((lines[start].lstrip("#").strip(), md("\n".join(lines[start + 1:end]))))
+        doc.chapters = merge_short_preface(doc.chapters)
     else:
         doc.chapters.append(("", md("\n".join(lines))))
     return doc
@@ -348,7 +398,7 @@ def split_html_chapters(cleaned, min_heads=2):
                 out.append(("Preface", pre))
             for i in range(1, len(parts), 2):
                 out.append((html_text(parts[i]).strip(), parts[i + 1] if i + 1 < len(parts) else ""))
-            return out
+            return merge_short_preface(out)
     return [("", cleaned)]
 
 
@@ -376,9 +426,11 @@ def read_html(path):
     if re.match(r"https?://", doc.meta.get("author", "")):
         doc.meta.pop("author")
     cleaned, _ = clean_html(pick_main(raw))
+    # leftover "← Back to ..." navigation from the page (its link is already gone)
+    cleaned = re.sub(r"<(span|p|div)>\s*(?:←|&larr;)\s*Back to [^<]{0,60}</\1>", "", cleaned, flags=re.I)
     # a leading <h1> that repeats the title is the article's own headline: drop it
     t = doc.meta.get("title", "")
-    mh = re.match(r"\s*<h1>(.*?)</h1>", cleaned, re.S)
+    mh = re.search(r"<h1>(.*?)</h1>", cleaned[:1500], re.S)
     if mh and t and html_text(mh.group(1)).strip().lower() in t.lower():
         cleaned = cleaned[mh.end():]
     doc.chapters = split_html_chapters(cleaned)
@@ -591,6 +643,8 @@ def keyword_counts(text):
     c = Counter()
     for w in WORD.findall(text):
         lw = w.lower().strip("'’-")
+        if "-" in lw and any(part in STOP or part in COMMON for part in lw.split("-")):
+            continue
         if len(lw) >= 5 and lw not in STOP and lw not in COMMON and not w[0].isupper() and not re.search(r"['’]", lw) and not lw.endswith("ly"):
             c[lw] += 1
     return c
@@ -633,13 +687,13 @@ def nice_date(s):
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m:
         return m.group(0)
-    for fmt in ("%a, %d %b %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y"):
+    for fmt in ("%a, %d %b %Y %H:%M:%S %z", "%a, %d %b %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y"):
         try:
-            return dt.datetime.strptime(s[:len(dt.date.today().strftime(fmt)) + 6].strip(), fmt).strftime("%Y-%m-%d")
+            return dt.datetime.strptime(s.strip(), fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
     m = re.match(r"^(\d{4})$", s.strip())
-    return f"{m.group(1)}-01-01" if m else ""
+    return m.group(1) if m else ""  # year only: shown as just the year
 
 
 def find_sidecar(path):
@@ -679,6 +733,7 @@ def load_work(path, shelf):
     doc = READERS[fmt](path)
     meta = {}
     meta.update({k: v for k, v in doc.meta.items() if v})        # what the file says about itself
+    file_fandom = meta.pop("fandom", "")                         # a page's site name only counts at the top of the shelf
     meta.update(folder_meta(path, shelf))                        # folder defaults (_folder.meta)
     meta.update(find_sidecar(path))                              # your overrides win
     rel = path.relative_to(shelf).as_posix()
@@ -688,7 +743,8 @@ def load_work(path, shelf):
     words = len(WORD.findall(full_text))
     top = path.relative_to(shelf).parts[0] if len(path.relative_to(shelf).parts) > 1 else ""
     title = meta.get("title") or path.stem.replace("-", " ").replace("_", " ").strip().title()
-    fandoms = as_list(meta.get("fandoms") or meta.get("fandom")) or ([top] if top else ["Uncategorized Fandom"])
+    fandoms = (as_list(meta.get("fandoms") or meta.get("fandom")) or ([top] if top else [])
+               or ([file_fandom] if file_fandom else ["Uncategorized Fandom"]))
     summary = meta.get("summary") or ""
     if not summary and full_text:
         sents = re.split(r"(?<=[.!?])\s+", re.sub(r"\s+", " ", full_text).strip())
@@ -911,6 +967,8 @@ class Site:
 
     @staticmethod
     def long_date(s):
+        if re.fullmatch(r"\d{4}", s or ""):
+            return s
         try:
             return dt.date.fromisoformat(s).strftime("%d %b %Y")
         except ValueError:
@@ -937,7 +995,7 @@ class Site:
                 f"<a class=\"nao-btn\" href=\"me.html\">Marked for Later</a></p></div>"
                 f"<div class=\"module\"><h3 class=\"heading\">Fandoms</h3><ul class=\"nao-fandoms\">{flist}</ul>"
                 f"<p><a href=\"media/index.html\">All fandoms →</a></p></div></div>"
-                + self.work_list(self.works[:10], here, "Recently Added"))
+                + self.work_list(self.works[:10], here, "Newest First"))
         self.write(here, "Home", body, here, "splash")
 
     def build_browse(self):
@@ -1033,7 +1091,8 @@ class Site:
                     nav.append(f"<li class=\"chapter previous\"><a href=\"{cl(n - 1)}\">← Previous Chapter</a></li>")
                 if n < len(chs):
                     nav.append(f"<li class=\"chapter next\"><a href=\"{cl(n + 1)}\">Next Chapter →</a></li>")
-                opts = "".join(f"<option value=\"{cl(i + 1)}\"{' selected' if i + 1 == n else ''}>{i + 1}. {e(c['title'])}</option>"
+                opts = "".join(f"<option value=\"{cl(i + 1)}\"{' selected' if i + 1 == n else ''}>"
+                               f"{i + 1}. {e('' if c['title'] == f'Chapter {i + 1}' else c['title']) or f'Chapter {i + 1}'}</option>"
                                for i, c in enumerate(chs))
                 nav.append(f"<li class=\"chapter\"><form onsubmit=\"return false\"><p><select aria-label=\"Chapter Index\" "
                            f"class=\"nao-jump\">{opts}</select></p></form></li>")
@@ -1054,8 +1113,9 @@ class Site:
 
             def chapter_html(i):
                 c = chs[i]
-                head = (f"<div class=\"chapter preface group\"><h3 class=\"title\"><a href=\"{cl(i + 1)}\">Chapter {i + 1}</a>: "
-                        f"{e(c['title'])}</h3></div>" if multi else "")
+                label = "" if c["title"] == f"Chapter {i + 1}" else f": {e(c['title'])}"
+                head = (f"<div class=\"chapter preface group\"><h3 class=\"title\"><a href=\"{cl(i + 1)}\">Chapter {i + 1}</a>"
+                        f"{label}</h3></div>" if multi else "")
                 return (f"<div class=\"chapter\" id=\"chapter-{i + 1}\">{head}"
                         f"<div class=\"userstuff module\" role=\"article\"><h3 class=\"landmark heading\">Chapter Text</h3>"
                         f"{c['html']}</div></div>")

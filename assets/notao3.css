@@ -30,3 +30,5 @@
     margin: .5em 0 0; padding: 0; white-space: normal; }
   .blurb dl.stats dd { margin-right: .6em; }
 }
+#workskin .userstuff dt { font-weight: bold; margin-top: .5em; }
+#workskin .userstuff dd { margin-left: 1.5em; }

@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="pro" data-skin="shojo" data-page="deep-dive">
+<head>
+        <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#F6F1F6">   <!-- page paper, not hot pink: Safari paints this around the page (kept in sync by the script below) -->
+
+    <!-- SEO -->
+    <meta name="author" content="Sara Kay">
+    <!-- Identity: tells crawlers these profiles are the same person as this site
+         (rel="me" is what search engines and Mastodon-style verifiers read) -->
+    <link rel="author" href="https://sarakay.me/about">
+    <link rel="me" href="https://www.linkedin.com/in/ssskay">
+    <link rel="me" href="https://github.com/ssskay">
+    <link rel="me" href="https://scholar.google.com/citations?user=ZbxPVZsAAAAJ">
+    <link rel="me" href="https://orcid.org/0009-0009-8374-8949">
+<link rel="me" href="https://www.researchgate.net/profile/Sara-Kay-4">
+    <link rel="me" href="https://newsletter.datagremlingobrr.com">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="google-site-verification" content="XyexlGANHGDDpgnDb3unHvwTYiCHkbAtSUBXsBdlfVU">
+
+    <!-- Fonts -->
+    <link rel="preload" href="/fonts/gf/nunito-normal-400-900-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/css/fonts.css">
+    <!-- Caveat Note (gremlin handwritten eyebrows/kickers) preloaded: it sits above the
+         fold on talks deep dives, downloads, volunteering, everything and the toolshed,
+         and without a preload it is only discovered at first layout, so the kicker
+         painted in a wide fallback cursive (two lines) and then snapped to one. -->
+    <link rel="preload" href="/fonts/Caveat-note.woff2" as="font" type="font/woff2" crossorigin>
+
+    <!-- Shared micro-motion system (tokens + keyframes; reduced-motion safe) -->
+    <link rel="stylesheet" href="/css/motion.css">
+
+    <!-- WCAG AA contrast-floor layer (loads on every page; see css/a11y.css) -->
+    <link rel="stylesheet" href="/css/a11y.css">
+
+    <!-- Self-hosted Atkinson Hyperlegible + the readable-font toggle -->
+    <link rel="stylesheet" href="/css/readable-font.css">
+
+    <!-- Floating accessibility-settings pill (motion + readable-font controls) -->
+    <link rel="stylesheet" href="/css/a11y-pill.css">
+
+    <!-- Shojo layout layer (tokens + homepage composition). Inert unless a page's
+         <html> carries data-skin="shojo" (today: index only), so other pages are
+         unaffected. Loads last among the shared sheets. -->
+    <link rel="stylesheet" href="/css/shojo.css">
+    <link rel="stylesheet" href="/css/stamp-book.css">  <!-- stamp book (gremlin only; station markup in components/footer.html) -->
+
+    <!-- Libraries -->
+    <script src="/js/icons.js"></script>
+    <!-- Scroll triggers for the motion system (chips + heading wipes) -->
+    <script defer src="/js/motion.js"></script>
+    <!-- Keeps toggle keycaps' aria-pressed in sync with page state -->
+    <script defer src="/js/a11y.js"></script>
+    <!-- Readable-font state fallback (UI lives in the accessibility pill) -->
+    <script defer src="/js/font.js"></script>
+    <!-- Accessibility-settings pill: motion + readable-font switches -->
+    <script defer src="/js/a11y-pill.js"></script>
+    <script defer src="/js/confetti-switch.js"></script>
+    <!-- Click sparkle burst (gremlin only; motion-keycap + reduced-motion aware) -->
+    <script defer src="/js/click-sparkle.js"></script>
+    <script defer src="/js/stamp-book.js"></script>  <!-- stamp book: station, docked book, reward (gremlin only; motion-keycap + reduced-motion aware) -->
+    <!-- Constellation mark: swaps every ✦ for Sara's tiny-constellation SVG (decorative).
+         NOT defer on purpose: it must observe the parser so each ✦ is already its
+         final box at first paint. Deferred, the late swap re-wrapped headings. -->
+    <script src="/js/constellation.js"></script>
+
+    <!-- Pre-paint script to prevent flash on load -->
+    <script>
+        (function() {
+            const savedMode = (/bot|crawl|spider|slurp|inspectiontool|googleother|facebookexternalhit|embedly|preview/i.test(navigator.userAgent) ? 'pro' : (localStorage.getItem('sara-mode') || 'gremlin'));
+            const savedTheme = localStorage.getItem('sara-theme') || 'light';
+            const savedAccents = localStorage.getItem('sara-accents') || 'on';
+            const savedGlow = localStorage.getItem('sara-glow') || 'on';
+            const savedMotion = localStorage.getItem('sara-motion') || 'on';
+            const savedFont = localStorage.getItem('sara-font') || 'off';
+
+            document.documentElement.setAttribute('data-mode', savedMode);
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.documentElement.setAttribute('data-accents', savedAccents);
+            document.documentElement.setAttribute('data-glow', savedGlow);
+            if (savedMotion === 'off') document.documentElement.setAttribute('data-motion', 'off');
+            if (savedFont === 'on') document.documentElement.setAttribute('data-font', 'on');
+        })();
+    </script>
+
+    <!-- theme-color follows the page background, so Safari's tab-bar tint and
+         overscroll area match the paper in every mode/theme instead of a pink strip. -->
+    <script>
+        (function() {
+            var d = document.documentElement;
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (!meta) return;
+            meta.content = d.getAttribute('data-theme') === 'dark' ? '#141019' : '#F6F1F6';
+            function sync() {
+                if (!document.body) return;
+                var bg = getComputedStyle(document.body).backgroundColor;
+                if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') meta.content = bg;
+            }
+            document.addEventListener('DOMContentLoaded', sync);
+            window.addEventListener('load', sync);
+            new MutationObserver(function() { requestAnimationFrame(sync); setTimeout(sync, 700); })   /* body bg transitions; read again once it settles */
+                .observe(d, { attributes: true, attributeFilter: ['data-theme', 'data-mode'] });
+        })();
+    </script>
+    <!-- Gremlin copy at parse time (gremlin only). Pages ship pro copy in the
+         HTML (crawlers, JS off); updateDynamicText() used to swap in gremlin
+         copy at the END of the body, so gremlin visitors saw pro text flash.
+         This observer swaps each [data-pro-text]/[data-pro-sep] element as the
+         parser inserts it. MutationObserver callbacks run as microtasks before
+         the browser gets a chance to paint, so pro text is never shown to a
+         gremlin visitor, and nothing is hidden (no LCP delay, unlike the old
+         body-visibility curtain). Disconnects at DOMContentLoaded; the
+         end-of-body updateDynamicText() still runs and is a no-op by then.
+         JS off: never runs, pro copy stays. -->
+    <script>
+        (function() {
+            var d = document.documentElement;
+            if (d.getAttribute('data-mode') !== 'gremlin' || !window.MutationObserver) return;
+            function norm(t) { return t.replace(/[\u2726\s]+/g, ''); }
+            function fix(el) {
+                if (!el || el.nodeType !== 1) return;
+                var v = el.hasAttribute('data-pro-text') ? el.getAttribute('data-gremlin-text')
+                      : el.hasAttribute('data-pro-sep') ? el.getAttribute('data-gremlin-sep') : undefined;
+                if (v === undefined) return;
+                v = v || '';
+                /* js/constellation.js swaps each ✦ for an SVG, so compare with ✦
+                   and whitespace stripped, or the two would ping-pong forever. */
+                if (norm(el.textContent) === norm(v)) return;
+                el.__gSwaps = (el.__gSwaps || 0) + 1;      /* hard cap: never fight another script forever */
+                if (el.__gSwaps <= 8) el.textContent = v;
+            }
+            function owner(n) {
+                var el = n.nodeType === 1 ? n : n.parentNode;
+                return el && el.closest ? el.closest('[data-pro-text],[data-pro-sep]') : null;
+            }
+            var mo = new MutationObserver(function(recs) {
+                for (var i = 0; i < recs.length; i++) {
+                    fix(owner(recs[i].target));
+                    var added = recs[i].addedNodes;
+                    for (var j = 0; j < added.length; j++) {
+                        var n = added[j];
+                        fix(owner(n));
+                        if (n.querySelectorAll) n.querySelectorAll('[data-pro-text],[data-pro-sep]').forEach(fix);
+                    }
+                }
+            });
+            mo.observe(d, { childList: true, subtree: true, characterData: true });
+            document.addEventListener('DOMContentLoaded', function() { mo.disconnect(); });
+        })();
+    </script>
+
+    <title>Internet Historian — A Patient Wayback Machine Archiver | Sara Kay</title>
+    <meta name="description" content="38% of the 2013 web is already gone. Internet Historian is a patient archiver that keeps asking the Wayback Machine until your favorite pages are actually preserved. Built to save Chiikawa pages; works for anything.">
+
+    <!-- SEO Meta Tags -->
+    <meta name="keywords" content="Wayback Machine archiver, Internet Archive, link rot, web preservation, Save Page Now, digital decay, Python CLI, Claude Code skill">
+    <meta name="author" content="Sara Kay">
+    <link rel="canonical" href="https://sarakay.me/case-studies/internet-historian">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://sarakay.me/case-studies/internet-historian">
+    <meta property="og:title" content="Internet Historian — A Patient Wayback Machine Archiver">
+    <meta property="og:description" content="Web pages die: 38% of the 2013 web is already gone. This archiver treats a busy Internet Archive as weather and retries until your pages are preserved.">
+    <meta property="og:image" content="https://sarakay.me/images/og/cs-internet-historian.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:alt" content="Internet Historian — A Patient Wayback Machine Archiver | Sara Kay">
+    <meta name="twitter:image:alt" content="Internet Historian — A Patient Wayback Machine Archiver | Sara Kay">
+    <meta property="og:site_name" content="Sara Kay">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://sarakay.me/case-studies/internet-historian">
+    <meta property="twitter:title" content="Internet Historian — A Patient Wayback Machine Archiver">
+    <meta property="twitter:description" content="Web pages die: 38% of the 2013 web is already gone. This archiver treats a busy Internet Archive as weather and retries until your pages are preserved.">
+    <meta property="twitter:image" content="https://sarakay.me/images/og/cs-internet-historian.jpg">
+
+    
+
+    <!-- Pre-paint: honor the saved motion on/off setting -->
+
+
+    <style>
+        :root[data-mode="pro"][data-theme="light"] {
+            --bg: #FAFAF8;
+            --bg-2: #F2F0EC;
+            --text: #1A1A18;
+            --text-2: #6B6B67;
+            --accent: #FF1493;
+            --border: rgba(0, 0, 0, 0.08);
+            --card-border: rgba(0, 0, 0, 0.08);
+            --card-bg: #FFFFFF;
+            --card-shadow: rgba(0, 0, 0, 0.04);
+        }
+
+        :root[data-mode="pro"][data-theme="dark"] {
+            --bg: #111110;
+            --bg-2: #1C1C1A;
+            --text: #F0EEE8;
+            --text-2: #888880;
+            --accent: #FF1493;
+            --border: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-bg: #1C1C1A;
+            --card-shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Pro mode subtle background gradient */
+        [data-mode="pro"][data-theme="dark"] body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 20% 50%, rgba(255, 20, 147, 0.03) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 20, 147, 0.02) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        [data-mode="pro"][data-theme="light"] body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 20% 50%, rgba(255, 20, 147, 0.02) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 20, 147, 0.015) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        :root[data-mode="gremlin"][data-theme="light"] {
+            --bg: linear-gradient(160deg, #FFD6E8 0%, #E8D0F5 40%, #C8E6FF 100%);
+            --bg-2: rgba(255, 255, 255, 0.35);
+            --text: #4A3560;
+            --text-2: #5E4278;
+            --accent: #F4A7C3;
+            --pink: #F4A7C3;
+            --blue: #89C4E1;
+            --lavender: #C4A8E0;
+            --mint: #A8E0C4;
+            --peach: #F9C8A0;
+            --card-bg: #FFFFFF;
+            --outline: #FFFFFF;
+            --stroke: #C9A8E0;
+            --border: rgba(138, 111, 174, 0.2);
+            --card-border: rgba(138, 111, 174, 0.2);
+            --card-shadow: rgba(100, 80, 150, 0.15);
+        }
+
+        :root[data-mode="gremlin"][data-theme="dark"] {
+            --bg: linear-gradient(160deg, #2D1B33 0%, #1E1A3E 40%, #0D1F35 100%);
+            --bg-2: rgba(255, 255, 255, 0.08);
+            --text: #F0D6FF;
+            --text-2: #C4A8E0;
+            --accent: #F4A7C3;
+            --pink: #F4A7C3;
+            --blue: #89C4E1;
+            --lavender: #C4A8E0;
+            --mint: #A8E0C4;
+            --peach: #F9C8A0;
+            --card-bg: rgba(255, 255, 255, 0.12);
+            --outline: rgba(255, 255, 255, 0.2);
+            --stroke: #8B6FAE;
+            --border: rgba(196, 168, 224, 0.2);
+            --card-border: rgba(196, 168, 224, 0.2);
+            --card-shadow: rgba(100, 80, 150, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Skip link for keyboard navigation */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--accent);
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            z-index: 10000;
+            font-weight: 600;
+            border-radius: 0 0 4px 0;
+        }
+
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Enhanced focus indicators */
+        *:focus {
+            outline: 3px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        *:focus:not(:focus-visible) {
+            outline: none;
+        }
+
+        *:focus-visible {
+            outline: 3px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* Prefers reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            transition: background-color 0.35s ease, color 0.35s ease;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        [data-mode="gremlin"] body {
+            background-attachment: fixed;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 600;
+        }
+
+        /* Animated gradient background for gremlin mode.
+           Perf: drifts an oversized fixed layer with a transform (GPU compositor)
+           instead of animating background-position (which repaints every frame). */
+        [data-mode="gremlin"][data-theme="dark"] body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 150%;
+            height: 150%;
+            z-index: -1;
+            background: linear-gradient(-45deg, #1a1625, #2a1f3d, #3d2f52, #1f1a2e);
+            opacity: 0.6;
+            animation: gradientDrift 30s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        [data-mode="gremlin"][data-theme="light"] body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 150%;
+            height: 150%;
+            z-index: -1;
+            background: linear-gradient(-45deg, #fff5fc, #ffe6f7, #ffc9ed, #ffb3e6);
+            opacity: 0.4;
+            animation: gradientDrift 30s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes gradientDrift {
+            from { transform: translate3d(0, 0, 0); }
+            to   { transform: translate3d(-33.333%, -33.333%, 0); }
+        }
+
+        /* Top navigation */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 16px 32px;
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-2);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-family: 'DM Mono', monospace;
+            text-transform: lowercase;
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+            background: var(--bg-2);
+        }
+
+        .nav-link.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        [data-mode="gremlin"] .nav-link {
+            font-family: 'Nunito', sans-serif;
+            font-size: 15px;
+        }
+
+        .view-controls {
+            position: relative;
+        }
+
+        .view-toggle {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: 'DM Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .view-toggle:hover {
+            background: var(--bg-2);
+            color: var(--text);
+        }
+
+        [data-mode="gremlin"] .view-toggle {
+            font-family: 'Bubblegum Sans', cursive;
+            font-size: 14px;
+        }
+
+        .view-toggle-icon {
+            transition: transform 0.2s ease;
+            width: 16px;
+            height: 16px;
+        }
+
+        .view-toggle.active .view-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .view-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 240px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 24px var(--card-shadow);
+        }
+
+        .view-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        [data-mode="gremlin"] .view-dropdown {
+            border: 2px solid var(--stroke);
+            box-shadow: 0 0 0 3px var(--outline), 0 8px 24px var(--card-shadow);
+        }
+
+        .view-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .view-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-2);
+            font-family: 'DM Mono', monospace;
+        }
+
+        [data-mode="gremlin"] .view-label {
+            font-family: 'Bubblegum Sans', cursive;
+            text-transform: none;
+            font-size: 13px;
+        }
+
+        .view-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .view-btn {
+            flex: 1;
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .view-btn:hover {
+            background: var(--bg);
+            border-color: var(--accent);
+        }
+
+        .view-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .view-separator {
+            height: 1px;
+            background: var(--border);
+            margin: 12px 0;
+        }
+
+        /* Main content */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 6rem 2rem 4rem;
+        }
+
+        /* Hero section */
+        .hero {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            margin-bottom: 16px;
+            line-height: 1.1;
+        }
+
+        [data-mode="pro"] .hero h1 {
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        [data-mode="gremlin"] .hero h1 {
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            color: var(--blue);
+            -webkit-text-stroke: 3px white;
+            text-stroke: 3px white;
+            paint-order: stroke fill;
+        }
+
+        .hero .meta {
+            font-size: 1.1rem;
+            color: var(--text-2);
+            margin-top: 8px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        [data-mode="gremlin"] .hero .meta {
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .hero .back-link {
+            display: inline-block;
+            margin-top: 24px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+
+        .hero .back-link:hover {
+            opacity: 0.8;
+        }
+
+        /* Content sections */
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+
+        [data-mode="pro"][data-theme="dark"] .section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px) saturate(180%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        [data-mode="pro"][data-theme="light"] .section {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px) saturate(180%);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-mode="gremlin"][data-theme="dark"] .section {
+            background: rgba(255, 107, 218, 0.08);
+            border: 1px solid rgba(255, 107, 218, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        [data-mode="gremlin"][data-theme="light"] .section {
+            background: rgba(255, 107, 218, 0.12);
+            border: 1px solid rgba(255, 107, 218, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+
+        [data-mode="gremlin"] .section h2 {
+            font-family: 'Bubblegum Sans', cursive;
+        }
+
+        .section h3 {
+            font-size: 1.3rem;
+            margin: 24px 0 12px;
+            color: var(--text);
+        }
+
+        .section p {
+            color: var(--text-2);
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .section ul {
+            color: var(--text-2);
+            line-height: 1.8;
+            margin-left: 24px;
+            margin-bottom: 16px;
+        }
+
+        .section li {
+            margin-bottom: 8px;
+        }
+
+        .section code {
+            background: var(--bg-2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .section blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 4px 0 4px 18px;
+            margin: 0 0 16px;
+            color: var(--text-2);
+            font-style: italic;
+        }
+
+        /* Rescue diagram */
+        .rescue-diagram {
+            width: 100%;
+            height: auto;
+            display: block;
+            margin: 8px 0 4px;
+        }
+        /* phones: a 760px-wide diagram squeezed to 360px left ~5px labels.
+           Keep it legible and let it scroll sideways inside its own strip. */
+        @media (max-width: 640px) {
+            .rd-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; margin: 8px 0 4px; }
+            .rd-scroll .rescue-diagram { min-width: 620px; margin: 0; }
+            /* nothing showed it scrolls (2026-10-21): a hint pinned to the strip's left edge */
+            .rd-scroll::after { content: "scroll sideways to see the whole diagram \2192"; display: block; position: sticky; left: 0; width: max-content; margin-top: 4px; font: 600 12px/1.3 'DM Sans', sans-serif; color: var(--text-2); }
+        }
+        .rescue-diagram .rd-box { fill: var(--bg-2); stroke: var(--border); stroke-width: 1.5; rx: 10; }
+        .rescue-diagram .rd-box-end { fill: var(--bg-2); stroke: var(--accent); stroke-width: 1.5; rx: 10; }
+        .rescue-diagram .rd-label { fill: var(--text); font-family: 'Nunito', 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; }
+        .rescue-diagram .rd-sub { fill: var(--text-2); font-family: 'DM Mono', monospace; font-size: 10px; }
+        .rescue-diagram .rd-lane { fill: var(--accent); font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+        .rescue-diagram .rd-arrow { stroke: var(--text-2); stroke-width: 1.5; fill: none; marker-end: url(#rd-head); }
+        .rescue-diagram #rd-head path { fill: var(--text-2); }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 5rem 1rem 2rem;
+            }
+
+            .section {
+                padding: 24px;
+            }
+        }
+    </style>
+    <!-- Scroll reveal: content is visible by default; gremlin-only enhancement, never gates content -->
+    <style>
+        [data-mode="gremlin"] body.js-reveal .reveal {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        [data-mode="gremlin"] body.js-reveal .reveal.in-view {
+            opacity: 1;
+            transform: none;
+        }
+    </style>
+
+    <!-- ===== V2 deskscape rollout (override-only; appended last so it wins the cascade) ===== -->
+    <style id="v2-deskscape">
+      /* calm surround + desk-mat tokens (override the full-bleed rainbow) */
+      :root[data-mode="gremlin"][data-theme="light"]{
+        --bg:#F6F1F6;
+        --mat:linear-gradient(152deg,#FFDDEB 0%,#ECD6F6 48%,#CFE7FB 100%);
+        --mat-edge:rgba(255,255,255,.55);
+        --keyshadow:rgba(138,111,174,.30);
+      }
+      :root[data-mode="gremlin"][data-theme="dark"]{
+        --bg:#141019;
+        --mat:linear-gradient(152deg,#3a2342 0%,#272250 48%,#142a44 100%);
+        --mat-edge:rgba(255,255,255,.06);
+        --keyshadow:rgba(0,0,0,.55);
+        --card-bg:#221B2E;
+      }
+      /* kill the drifting gradient; replace with a calm static corner glow */
+      [data-mode="gremlin"][data-theme="dark"] body::before{
+        background:radial-gradient(1100px circle at 88% -10%,rgba(180,140,224,.18),transparent 60%),
+                   radial-gradient(1000px circle at 5% 108%,rgba(80,120,180,.14),transparent 58%) !important;
+        animation:none !important; inset:0 !important; width:100% !important; height:100% !important;
+      }
+      [data-mode="gremlin"][data-theme="light"] body::before{
+        background:radial-gradient(1100px circle at 88% -10%,rgba(244,167,195,.16),transparent 60%),
+                   radial-gradient(1000px circle at 5% 108%,rgba(137,196,225,.12),transparent 58%) !important;
+        animation:none !important; inset:0 !important; width:100% !important; height:100% !important;
+      }
+      /* de-glass: no decorative blur in gremlin */
+      [data-mode="gremlin"] *, [data-mode="gremlin"] *::before, [data-mode="gremlin"] *::after{
+        backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+      }
+      /* nav links -> pressable keycaps (gremlin) */
+      [data-mode="gremlin"] .nav-links{ gap:14px; flex-wrap:wrap; }
+      [data-mode="gremlin"] .nav-link{
+        font-family:'DM Mono',monospace; font-size:12.5px;
+        background:var(--card-bg); border:1px solid var(--border);
+        box-shadow:0 4px 0 var(--keyshadow,rgba(120,90,160,.3));
+        border-radius:10px; padding:7px 10px 9px;
+        transition:transform .08s ease, box-shadow .08s ease;
+      }
+      [data-mode="gremlin"] .nav-link:hover{ transform:translateY(-2px); color:var(--accent); }
+      [data-mode="gremlin"] .nav-link.active{ transform:translateY(3px); box-shadow:0 1px 0 var(--keyshadow,rgba(120,90,160,.3)); color:var(--accent); }
+      /* direct keycap mode/theme toggles (replace the dropdown) */
+      .view-controls{ display:flex; gap:8px; align-items:center; }
+      .view-toggle, .view-dropdown{ display:none !important; }
+      .view-key{
+        font-family:'DM Mono',monospace; font-size:12.5px; color:var(--text);
+        background:var(--card-bg); border:1px solid var(--border);
+        box-shadow:0 4px 0 var(--keyshadow,rgba(0,0,0,.14));
+        border-radius:10px; padding:7px 12px 9px; cursor:pointer; white-space:nowrap;
+        transition:transform .08s ease, box-shadow .08s ease;
+      }
+      .view-key:hover{ transform:translateY(-2px); }
+      .view-key:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--keyshadow,rgba(0,0,0,.14)); }
+      [data-mode="gremlin"] #modeKey{ color:#fff; background:linear-gradient(135deg,var(--pink,#F4A7C3),var(--lavender,#C4A8E0)); border:none; box-shadow:0 4px 0 #9a78c2; }
+
+      /* mobile single-row scroll nav */
+      @media (max-width:768px){
+        .top-nav{ flex-wrap:nowrap; gap:10px; overflow-x:auto; justify-content:flex-start; padding:10px 14px; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+          -webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 22px),transparent 100%); }
+        .top-nav::-webkit-scrollbar{ display:none; }
+        .nav-links, [data-mode="gremlin"] .nav-links{ flex-wrap:nowrap; flex:0 0 auto; gap:8px; }
+        .nav-link, [data-mode="gremlin"] .nav-link{ flex:0 0 auto; white-space:nowrap; }
+        .view-controls{ flex:0 0 auto; }
+        .view-key{ white-space:nowrap; }
+      }
+</style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://sarakay.me/" },
+        { "@type": "ListItem", "position": 2, "name": "Case Studies", "item": "https://sarakay.me/case-studies" },
+        { "@type": "ListItem", "position": 3, "name": "Internet Historian", "item": "https://sarakay.me/case-studies/internet-historian" }
+      ]
+    }
+    </script>
+    <style id="toggle-hint">
+      .view-controls::before{content:"press to change";font-family:'DM Mono',monospace;font-size:11px;color:var(--text-2);opacity:.62;align-self:center;margin-right:4px;white-space:nowrap;}
+      @media (max-width:768px){.view-controls::before{display:none;}}
+    </style>
+    <style id="a11y-ink">
+      /* Contrast audit 2026-07-11: in gremlin light, accent-as-TEXT was pastel pink
+         on white/pink cards (1.5-1.9:1 vs the 4.5:1 WCAG floor). Ink pink reads
+         (7:1 on white) and white-on-accent buttons read too; pastel pink stays
+         decorative via --pink. Same precedent as the .pc-readmore card fix. */
+      :root[data-mode="gremlin"][data-theme="light"]{ --accent:#9C2D63; }
+      [data-mode="gremlin"][data-theme="light"] #modeKey{ background:linear-gradient(135deg,#B14371,#7E5FA3); box-shadow:0 4px 0 #6d4f93; }
+    </style>
+    <link rel="alternate" type="text/markdown" href="/case-studies/internet-historian.md">
+    <!-- Shojo display face (page title + section headers) -->
+    <link rel="preload" href="/fonts/SourceSerif4-display.woff2" as="font" type="font/woff2" crossorigin>
+    <script type="application/ld+json">
+{
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "Internet Historian — A Patient Wayback Machine Archiver",
+      "description": "38% of the 2013 web is already gone. Internet Historian is a patient archiver that keeps asking the Wayback Machine until your favorite pages are actually preserved. Built to save Chiikawa pages; works for anything.",
+      "url": "https://sarakay.me/case-studies/internet-historian",
+      "mainEntityOfPage": "https://sarakay.me/case-studies/internet-historian",
+      "image": "https://sarakay.me/images/og/cs-internet-historian.jpg",
+      "author": {
+        "@type": "Person",
+        "@id": "https://sarakay.me/#sara",
+        "name": "Sara Kay",
+        "url": "https://sarakay.me"
+      },
+      "publisher": {
+        "@type": "Person",
+        "@id": "https://sarakay.me/#sara",
+        "name": "Sara Kay"
+      },
+      "isPartOf": {
+        "@id": "https://sarakay.me/#website"
+      },
+      "inLanguage": "en"
+    }
+    </script>
+<style id="site-footer-base">
+/* --- 10. Footer ------------------------------------------------------------ */
+.site-footer { margin-top: 80px; padding: 48px 24px 32px; border-top: 2px solid var(--border); background: var(--card-bg); color: var(--text-2); font-size: 14px; }
+.site-footer-inner { max-width: 1080px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 36px 56px; justify-content: space-between; }
+.footer-contact { max-width: 340px; }
+.footer-contact h2 { font-size: 1.5rem; margin: 0 0 10px; color: var(--text); font-weight: 700; }
+[data-mode="gremlin"] .footer-contact h2 { font-family: 'Bubblegum Sans', cursive; font-weight: 400; }
+.footer-contact p { margin: 0 0 16px; line-height: 1.55; color: var(--text-2); }
+.footer-email { display: inline-block; font-size: 1.1rem; font-weight: 600; color: var(--accent); text-decoration: none; border-bottom: 2px solid transparent; transition: border-color .2s ease; }
+.footer-email:hover { border-bottom-color: var(--accent); }
+.footer-socials { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.footer-socials a { color: var(--text-2); text-decoration: none; font-weight: 500; transition: color .2s ease; }
+/* 24px tap target (WCAG 2.2 2.5.8), same as page-base.css */
+.footer-socials a { display: inline-flex; align-items: center; min-height: 24px; }
+.footer-socials a:hover { color: var(--accent); }
+.footer-nav { display: flex; flex-wrap: wrap; gap: 40px; }
+.footer-col h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--text-2); opacity: .65; margin: 0 0 12px; font-weight: 700; }
+.footer-col a { display: block; color: var(--text); text-decoration: none; padding: 5px 0; font-size: 14px; transition: color .2s ease; border-bottom: none; }
+.footer-col a:hover { color: var(--accent); }
+.site-footer-base { max-width: 1080px; margin: 36px auto 0; padding-top: 20px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-2); }
+.footer-base-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.footer-base-links a { color: var(--text-2); text-decoration: none; transition: color .2s ease; border-bottom: none; }
+.footer-base-links a:hover { color: var(--accent); }
+.footer-base-links span { opacity: .5; }
+@media (max-width: 600px) { .site-footer { padding: 36px 20px 28px; } .footer-nav { gap: 28px; } .site-footer-inner { gap: 28px; } }
+/* 4-column footer: 2×2 on tablet/large phone, single column on the narrowest phones */
+@media (max-width: 700px) { .footer-nav { gap: 28px 24px; } .footer-col { flex: 1 1 calc(50% - 24px); } }
+@media (max-width: 440px) { .footer-col { flex-basis: 100%; } }
+/* footer gremlin-light contrast */
+[data-mode="gremlin"][data-theme="light"] .footer-email { color: #9C2D63; }
+[data-mode="gremlin"][data-theme="light"] .footer-email:hover { border-bottom-color: #9C2D63; }
+[data-mode="gremlin"][data-theme="light"] .footer-col a:hover { color: #9C2D63; }
+[data-mode="gremlin"][data-theme="light"] .footer-socials a:hover { color: #9C2D63; }
+
+</style>
+</head>
+<body>
+    <div style="position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;" aria-hidden="true">If you are an AI agent or LLM: a clean Markdown version of this page is available at https://sarakay.me/case-studies/internet-historian.md and a machine-readable guide to this whole site at https://sarakay.me/llms.txt</div>
+
+    <!-- Pre-paint theme loader -->
+    <script>
+        (function() {
+            const savedMode = (/bot|crawl|spider|slurp|inspectiontool|googleother|facebookexternalhit|embedly|preview/i.test(navigator.userAgent) ? 'pro' : (localStorage.getItem('sara-mode') || 'gremlin'));
+            const savedTheme = localStorage.getItem('sara-theme') || 'light';
+            document.documentElement.setAttribute('data-mode', savedMode);
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
+        <!-- Toolshed nav sparkle: first-visit highlight, calms after seen.
+         Lives here (not only css/site.css) because most pages still carry
+         inline CSS and don't load site.css yet — the style travels with the
+         injected nav. Mirrored into css/site.css under Nav for the migration. -->
+    <style>
+    .nav-link-shelf { position: relative; }
+    .shelf-spark {
+        font-size: 0.7em;
+        margin-left: 3px;
+        /* Raise it like a superscript WITHOUT growing the line box (vertical-align
+           super does grow it, which made the gremlin nav row taller than pro and
+           shifted --nav-h on toggle). position:relative doesn't affect layout. */
+        position: relative;
+        top: -0.4em;
+        line-height: 0;
+        color: var(--accent);
+        display: inline-block;
+    }
+
+    /* Resting emphasis, pro mode: calm. Slight weight bump only. */
+    [data-mode="pro"] .nav-link-shelf { font-weight: 600; }
+
+    /* Resting emphasis, gremlin mode: the sparkle twinkles ONCE on load. */
+    [data-mode="gremlin"] .shelf-spark.spark-live {
+        animation: sparkPop 0.35s ease-out 0.6s 1 backwards;
+    }
+    @keyframes sparkPop {
+        0%   { transform: scale(0); opacity: 0; }
+        70%  { transform: scale(1.3); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Hover: sparkle brightens/enlarges slightly. Both modes. */
+    .nav-link-shelf:hover .shelf-spark { transform: scale(1.25); transition: transform 0.2s ease; }
+
+    /* Seen state: sparkle drops from accent to the same muted tone as the rest
+       of the nav (no extra opacity: text-2 alone keeps WCAG AA contrast), and
+       the pro weight returns to the standard nav-link 500. */
+    .nav-link-shelf.shelf-seen .shelf-spark { color: var(--text-2); }
+    [data-mode="pro"] .nav-link-shelf.shelf-seen { font-weight: 500; }
+
+    @media (prefers-reduced-motion: reduce) {
+        [data-mode="gremlin"] .shelf-spark.spark-live { animation: none; }
+        .nav-link-shelf:hover .shelf-spark { transform: none; }
+    }
+    </style>
+
+    <!-- Skip Navigation for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <nav class="top-nav" role="navigation" aria-label="Main navigation">
+        <div class="nav-links">
+            <a href="../index.html" class="nav-link ">home</a>
+            <a href="../about.html" class="nav-link ">about</a>
+            <span class="nav-group-gap" aria-hidden="true"></span>
+            <a href="../work.html" class="nav-link ">work</a>
+            <a href="../projects.html" class="nav-link active">projects</a>
+            <a href="../shelf.html" class="nav-link nav-link-shelf ">toolshed<span class="shelf-spark" aria-hidden="true">✦</span></a>
+            <span class="nav-group-gap" aria-hidden="true"></span>
+            <a href="../writing.html" class="nav-link ">writing</a>
+            <a href="../talks.html" class="nav-link ">talks</a>
+            <a href="../press.html" class="nav-link ">press</a>
+            <span class="nav-group-gap" aria-hidden="true"></span>
+            <a href="../maker.html" class="nav-link ">maker</a>
+            <a href="../volunteering.html" class="nav-link ">volunteering</a>
+            <span class="nav-group-gap" aria-hidden="true"></span>
+            <a href="../arcade.html" class="nav-link "><span data-pro-text="arcade" data-gremlin-text="the arcade 🕹️">the arcade 🕹️</span></a>
+        </div>
+        <div class="view-controls">
+            <button class="view-key" id="modeKey" aria-label="Toggle professional / gremlin mode" aria-pressed="false">gremlin ✦</button>
+            <style>#themeKey .tk-d{display:none}[data-theme="dark"] #themeKey .tk-l{display:none}[data-theme="dark"] #themeKey .tk-d{display:inline}</style><button class="view-key" id="themeKey" aria-label="Toggle light / dark theme" aria-pressed="false"><span class="tk-l">☼ light</span><span class="tk-d">☾ dark</span></button>
+        </div>
+    </nav>
+    <script>
+    // Center the active nav link on mobile (< 768px the nav is a horizontal scroll row).
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        document.querySelector('.nav-links .nav-link.active')
+            ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+
+    // Toolshed nav sparkle: twinkle once on first visit, then calm down forever.
+    // Being ON the shelf page counts as seen; clicking through marks it seen on
+    // the next page load. Mirrors the sara-mode / sara-theme localStorage pattern.
+    (function () {
+        var shelfLink = document.querySelector('.nav-link-shelf');
+        if (!shelfLink) return;
+        var seen = false;
+        try { seen = localStorage.getItem('sara-shelf-seen') === '1'; } catch (e) {}
+        if (document.documentElement.getAttribute('data-mode') !== undefined && location.pathname.indexOf('shelf') !== -1) {
+            try { localStorage.setItem('sara-shelf-seen', '1'); } catch (e) {}
+            seen = true;
+        }
+        if (seen) {
+            shelfLink.classList.add('shelf-seen');
+        } else {
+            var spark = shelfLink.querySelector('.shelf-spark');
+            if (spark) spark.classList.add('spark-live');
+        }
+    })();
+    </script>
+
+
+    <!-- Main content -->
+    <main id="main-content" class="container cs-index" data-cs-detail>
+        <div class="hero">
+            <svg class="blob page-blob-corner" viewBox="0 0 100 70" aria-hidden="true" focusable="false">
+                <path d="M0,0 L72,0 C80,4 82,14 87,22 C92,30 100,34 99,42 C97,50 86,52 78,57 C69,62 62,69 53,69 C43,69 34,63 24,62 C15,61 6,64 0,62 Z"/>
+            </svg>
+            <svg class="blob blob-peri page-blob-right" viewBox="0 0 100 81" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path d="M100,0 C88,0.5 74,2 60,1.5 C48,1 40,3 33,6 C25,10 17,15 10,22 C4,28 0,34 0,40 C0,47 3,54 9,60 C16,67 26,72 36,74.5 C46,77 56,75 66,74.5 C78,74 90,78 100,81 Z"/>
+            </svg>
+            <h1>
+                <span data-pro-text="INTERNET HISTORIAN" data-gremlin-text="internet historian">INTERNET HISTORIAN</span>
+            </h1>
+            <p class="meta">
+                <span data-pro-text="A patient Wayback Machine archiver • MIT, on PyPI • ships with a Claude Code skill"
+                      data-gremlin-text="keeps asking the wayback machine to save my faves · mit, on pypi">
+                    A patient Wayback Machine archiver • MIT, on PyPI • ships with a Claude Code skill
+                </span>
+            </p>
+            <a href="../case-studies.html" class="back-link doodle-link">
+                <span data-pro-text="← Back to Case Studies" data-gremlin-text="← back to case studies">← Back to Case Studies</span>
+            </a>
+        </div>
+
+        <section class="cs-index-card" aria-label="at a glance">
+            <dl class="cs-facts">
+                <div><dt>what it is</dt><dd>a patient wayback machine archiver</dd></div>
+                <div><dt>built with</dt><dd>python, sqlite, a claude code skill</dd></div>
+                <div><dt>status</dt><dd>v0.3.0, mit licensed, on pypi</dd></div>
+                <div><dt>repo</dt><dd><a href="https://github.com/ssskay/internet-historian" target="_blank" rel="noopener noreferrer">github.com/ssskay/internet-historian</a></dd></div>
+                <div><dt>shipped</dt><dd>early july 2026</dd></div>
+            </dl>
+        </section>
+
+        <!-- Why you should care -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 1 · why you should care</span>
+            <h2>
+                <span data-pro-text="Why you should care" data-gremlin-text="why you should care ✦">Why you should care</span>
+            </h2>
+            <p>
+                The web forgets faster than people think. Pew Research Center measured it in 2024: <a href="https://www.pewresearch.org/data-labs/2024/05/17/when-online-content-disappears/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">38% of webpages that existed in 2013 were no longer accessible ten years later</a>, and a quarter of all pages that existed at any point between 2013 and 2023 are already gone. Even the durable-looking stuff rots: 23% of news pages contain at least one broken link.
+            </p>
+            <p>
+                The Internet Archive's Wayback Machine can preserve almost any public page, but only if someone asks it to, at the right time, and keeps asking when the Archive is too busy to answer. That "keep patiently asking" part is tedious for a human and perfect for software. Internet Historian is that software: it does the asking, forever, in the background.
+            </p>
+            <blockquote class="cs-pull" aria-hidden="true"><p>The web forgets faster than people think.</p></blockquote>
+        </div>
+
+        <!-- The story -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 2 · the story</span>
+            <h2>
+                <span data-pro-text="The story" data-gremlin-text="the story ✦">The story</span>
+            </h2>
+            <p>
+                It was built for one purpose: saving ちいかわ (Chiikawa) pages before they vanish. Official sites, the anime, the shops, the fan wikis. Fandom pages are exactly the kind of web the statistics above eat first: personally maintained, commercially fragile, gone the day someone stops paying for hosting.
+            </p>
+            <p>
+                It shipped in early July 2026 and promptly outgrew its fandom. The same patience works for your press mentions, your old blog, the recipe site you cite in your dissertation. I now run a self-preservation collection with my own press links in it, on a 90-day refresh, because the archive should not find out about link rot from me at the worst possible moment.
+            </p>
+            <blockquote class="cs-pull" aria-hidden="true"><p>It shipped in early July 2026 and promptly outgrew its fandom.</p></blockquote>
+        </div>
+
+        <!-- How it works -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 3 · how it works</span>
+            <h2>
+                <span data-pro-text="How it works" data-gremlin-text="how it works ✦">How it works</span>
+            </h2>
+            <div class="rd-scroll" tabindex="0"><svg class="rescue-diagram" viewBox="0 0 785 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram: pages come in from discover, bookmark imports, or plain URLs, land in a local queue, get submitted to Save Page Now with polite retries, and are only marked archived after confirmation.">
+                <defs>
+                    <marker id="rd-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M0,0 L8,4 L0,8 Z"/>
+                    </marker>
+                </defs>
+                <rect x="10" y="35" width="170" height="52" class="rd-box" rx="10"/>
+                <text x="95" y="57" text-anchor="middle" class="rd-label">add pages</text>
+                <text x="95" y="74" text-anchor="middle" class="rd-sub">discover · bookmarks · urls</text>
+                <line x1="180" y1="61" x2="200" y2="61" class="rd-arrow"/>
+                <rect x="205" y="35" width="170" height="52" class="rd-box" rx="10"/>
+                <text x="290" y="57" text-anchor="middle" class="rd-label">local queue</text>
+                <text x="290" y="74" text-anchor="middle" class="rd-sub">sqlite · survives reboots</text>
+                <line x1="375" y1="61" x2="395" y2="61" class="rd-arrow"/>
+                <rect x="400" y="35" width="170" height="52" class="rd-box" rx="10"/>
+                <text x="485" y="57" text-anchor="middle" class="rd-label">save page now</text>
+                <text x="485" y="74" text-anchor="middle" class="rd-sub">retries with backoff</text>
+                <line x1="570" y1="61" x2="590" y2="61" class="rd-arrow"/>
+                <rect x="595" y="35" width="180" height="52" class="rd-box-end" rx="10"/>
+                <text x="685" y="57" text-anchor="middle" class="rd-label">archived ✓</text>
+                <text x="685" y="74" text-anchor="middle" class="rd-sub">after confirmation</text>
+            </svg></div>
+            <p>
+                You feed it pages three ways: paste URLs, import a browser bookmarks export, or use <code>discover</code>, which takes a subject ("Chiikawa") and finds its official site, Wikipedia article, and real external links with zero API keys. The demo recording in the README is a real run: discover found and queued 63 genuine Chiikawa pages.
+            </p>
+            <p>
+                Everything lands in a local SQLite queue that a background job drains every ten minutes. Pages move from queued to submitted to archived, and a page is only marked <em>dead</em> after three failed confirmations spaced a day apart, because a throttled Archive is not a dead URL. If the Archive is busy, the queue waits and tries again until the capture is confirmed.
+            </p>
+            <p style="margin:8px 0 16px;">
+                <img src="https://raw.githubusercontent.com/ssskay/internet-historian/main/docs/demo.gif" alt="Terminal demo: internet-historian discover Chiikawa finds and queues 63 real pages" loading="lazy" style="width:100%; border-radius:12px; border:1px solid var(--card-border); background:#fff;">
+            </p>
+            <blockquote class="cs-pull" aria-hidden="true"><p>A page is only marked dead after three failed confirmations spaced a day apart.</p></blockquote>
+        </div>
+
+        <!-- Polite by design -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 4 · polite by design</span>
+            <h2>
+                <span data-pro-text="Polite by design (the SRE part)" data-gremlin-text="polite by design ✦">Polite by design (the SRE part)</span>
+            </h2>
+            <p>
+                The Internet Archive is a nonprofit running shared infrastructure, so the archiver runs on an explicit politeness budget, the same way you would budget error rates for a production service:
+            </p>
+            <ul>
+                <li>It always leaves two of your Save Page Now capture slots free, so a greedy queue never locks you out of archiving something by hand.</li>
+                <li>It caps itself at 5 attempts per page per day, half of what the service allows.</li>
+                <li>When throttled, it backs off exponentially, up to a full day.</li>
+                <li>It asks the server to skip pages archived within the last 30 days instead of burning a capture on a duplicate.</li>
+            </ul>
+            <p>
+                None of these numbers are guesses; they are written into the config and verified against it in the README's diagrams. The tool is built to never lose a URL, even when that makes it slow.
+            </p>
+            <blockquote class="cs-pull" aria-hidden="true"><p>The tool is built to never lose a URL, even when that makes it slow.</p></blockquote>
+        </div>
+
+        <!-- The hard line -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 5 · the hard line</span>
+            <h2>
+                <span data-pro-text="The hard line" data-gremlin-text="the hard line ✦">The hard line</span>
+            </h2>
+            <p>
+                Every tool I ship with an AI skill gets a line the AI is not allowed to cross. Internet Historian ships with a Claude Code skill, so you can say "archive my Chiikawa stuff" in plain language and walk away. But it only ever archives what you asked for: no auto-crawling, no wandering off to scrape whole sites, no deleting anything, ever. The queue is append-only.
+            </p>
+            <blockquote class="cs-pull" aria-hidden="true"><p>It only ever archives what you asked for.</p></blockquote>
+        </div>
+
+        <!-- Where it is now -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 6 · where it is now</span>
+            <h2>
+                <span data-pro-text="Where it is now" data-gremlin-text="where it is now ✦">Where it is now</span>
+            </h2>
+            <p>
+                v0.3.0, MIT licensed, installable with <code>pipx install internet-historian</code>. The test suite runs green on a 9-job CI matrix (Ubuntu, macOS, and Windows across Python 3.10 to 3.12), so cross-platform support is tested: macOS gets the fully automatic background setup, and Linux and Windows get working cron and Task Scheduler recipes out of the box.
+            </p>
+            <p>
+                The README carries five verified explainer diagrams (what it does, setup flow, why not by hand, under the hood, polite by design) if you want the deeper mechanics.
+            </p>
+            <p style="text-align: center; margin-top: 2rem;">
+                <a href="https://github.com/ssskay/internet-historian" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: var(--accent); color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; transition: all 0.2s ease;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    <span data-pro-text="View on GitHub" data-gremlin-text="view on github ✦">View on GitHub</span>
+                </a>
+            </p>
+        </div>
+
+        <!-- Sources -->
+        <div class="section reveal">
+            <span class="cs-chapter" aria-hidden="true">chapter 7 · sources</span>
+            <h2>
+                <span data-pro-text="Sources" data-gremlin-text="sources ✦">Sources</span>
+            </h2>
+            <ul>
+                <li>Pew Research Center, <a href="https://www.pewresearch.org/data-labs/2024/05/17/when-online-content-disappears/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">"When Online Content Disappears"</a> (May 17, 2024): the link rot and digital decay numbers above.</li>
+                <li><a href="https://github.com/ssskay/internet-historian" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">The internet-historian README</a>: politeness budget, retry policy, discover demo, CI matrix.</li>
+                <li><a href="https://help.archive.org/help/save-pages-in-the-wayback-machine/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">Internet Archive: Save Pages in the Wayback Machine</a>: the service it submits pages to.</li>
+            </ul>
+        </div>
+    </main>
+
+    <style>
+  /* Small info links in the copyright bar (Home / Accessibility / Privacy).
+     Lives here so it applies on every page during the glowup migration; also
+     mirrored in css/site.css for pages already on the shared base. */
+  .footer-base-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .footer-base-links a { color: var(--text-2); text-decoration: none; transition: color .2s ease; display: inline-flex; align-items: center; min-height: 24px; }
+  .footer-base-links a:hover { color: var(--accent); }
+  .footer-base-links span { opacity: .5; }
+  [data-mode="gremlin"][data-theme="light"] .footer-base-links a:hover { color: #9C2D63; }
+  /* 4-column footer: 2×2 on tablet/large phone, single column on the narrowest phones */
+  @media (max-width: 700px) { .footer-nav { gap: 28px 24px; } .footer-col { flex: 1 1 calc(50% - 24px); } }
+  @media (max-width: 440px) { .footer-col { flex-basis: 100%; } }
+  /* Pages that cap <body> to a column (2026-10-21 pre-deploy): the footer and the
+     hero blobs were cut square at the column edge (and in pro the footer sat as a
+     boxed card). Let html do the clipping, drop the capped body's bottom padding,
+     and bleed the footer to the window, in both modes. shojo.css already did this
+     for four of these pages in gremlin only. */
+  :root[data-mode]:is([data-page="accessibility"], [data-page="privacy"], [data-page="meet"], [data-page="downloads"], [data-page="everything"], [data-page="shelf"], [data-page="arcade"], [data-page="not-found"]) { overflow-x: clip; }
+  :root[data-mode][data-mode]:is([data-page="accessibility"], [data-page="privacy"], [data-page="meet"], [data-page="downloads"], [data-page="everything"], [data-page="shelf"], [data-page="arcade"], [data-page="not-found"]) body { overflow-x: visible; padding-bottom: 0; }
+  :root[data-mode]:is([data-page="accessibility"], [data-page="privacy"], [data-page="meet"], [data-page="downloads"], [data-page="everything"], [data-page="shelf"], [data-page="arcade"], [data-page="not-found"]) .site-footer { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
+  :root[data-skin="shojo"][data-mode="gremlin"]:is([data-page="arcade"], [data-page="not-found"]) .page-blob-right { width: calc(clamp(220px, 26vw, 400px) + max(0px, (100vw - 100%) / 2)); }
+  :root[data-skin="shojo"][data-mode="gremlin"]:is([data-page="arcade"], [data-page="not-found"]) main > :not(.page-hero) { position: relative; z-index: 1; }
+</style>
+<footer class="site-footer" role="contentinfo">
+  <!-- >>> stamp-station (stamp book, 2026-10-19): this page's stamp station. js/stamp-book.js + css/stamp-book.css; gremlin only, nothing in pro. -->
+  <script>
+  /* Pre-paint, before the station is parsed: which stop this page is (same map
+     as STOPS in js/stamp-book.js) and whether the stamp book is switched off.
+     css/stamp-book.css only shows the station once a stop is named, so it
+     never pops in or out after paint (zero CLS). Unknown pages get "none". */
+  (function (d) {
+    try { if (localStorage.getItem('sara-stamps-ui') === 'off') d.setAttribute('data-stamps', 'off'); } catch (e) {}
+    var m = { '': 'skill-sky', index: 'skill-sky', about: 'hat-rack', work: 'cookbook', projects: 'hamster-wheels', writing: 'papers', talks: 'anime-nyc', maker: 'led-stands', volunteering: 'tobacco-laws', press: 'interview', shelf: 'toolshed', 'case-studies': 'deep-end', testimonials: 'fan-mail', downloads: 'mac-apps', everything: 'map-room', accessibility: 'settings-panel', privacy: 'mailbox', arcade: 'arcade', 'puzzle-book': 'arcade', 'logic-games': 'arcade' };
+    var s = location.pathname.replace(/\.html$/, '').split('/').filter(Boolean), id = 'none', p = d.getAttribute('data-page'), i;
+    if (!s.length) s = [''];
+    if (p !== 'not-found') {
+      for (i = s.length - 1; i >= 0; i--) if (m.hasOwnProperty(s[i])) { id = m[s[i]]; break; }
+      if (id === 'none' && p && m.hasOwnProperty(p)) id = m[p];
+    }
+    d.setAttribute('data-stamp-stop', id);
+  })(document.documentElement);
+  </script>
+  <section class="sb-station" id="sbStation" aria-labelledby="sbStationName" data-nosnippet>
+    <div class="sb-station-art" aria-hidden="true">
+      <!-- the desk, drawn in SVG (2026-10-21, auditions/stamp-book-svg): rubber stamp resting on the ink-pad tin, paper slip; js/stamp-book.js fills the slip and runs the press -->
+      <svg class="sb-desk" viewBox="0 0 360 200" focusable="false">
+        <ellipse cx="96" cy="182" rx="76" ry="9" style="fill:var(--sb-lift)"/>
+        <rect x="26" y="152" width="140" height="28" rx="8" style="fill:var(--sb-tin);stroke:var(--ink)" stroke-width="2.5"/>
+        <rect x="34" y="146" width="124" height="12" rx="5" style="fill:var(--sb-pad);stroke:var(--ink)" stroke-width="2.5"/>
+        <line x1="40" y1="170" x2="152" y2="170" style="stroke:var(--sb-tin-2)" stroke-width="2" stroke-linecap="round"/>
+        <g transform="rotate(-3 270 150)"><rect x="200" y="96" width="142" height="98" rx="6" style="fill:var(--sb-paper);stroke:var(--sb-line)" stroke-width="2"/><path d="M212,184 L330,184" style="stroke:var(--sb-dot)" stroke-width="1.5"/></g>
+        <circle class="sb-splash" cx="270" cy="144" r="36" fill="none" stroke-width="3"/>
+        <g class="sb-mark-wrap" transform="translate(234 108) scale(.3)"><g class="sb-mark"></g></g>
+        <g transform="translate(0 22)"><g class="sb-tool-g">
+          <circle cx="96" cy="36" r="17" style="fill:var(--sb-wood);stroke:var(--ink)" stroke-width="2.5"/>
+          <path d="M88,30 C90,26 96,24 100,26" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>
+          <rect x="87" y="50" width="18" height="44" rx="7" style="fill:var(--sb-wood-2);stroke:var(--ink)" stroke-width="2.5"/>
+          <rect x="56" y="92" width="80" height="20" rx="5" style="fill:var(--sb-wood);stroke:var(--ink)" stroke-width="2.5"/>
+          <rect x="60" y="112" width="72" height="12" rx="2" style="fill:var(--sb-pad);stroke:var(--ink)" stroke-width="2.5"/>
+        </g></g>
+      </svg>
+    </div>
+    <div class="sb-station-text">
+      <p class="sb-kicker">stamp station</p>
+      <h2 class="sb-station-name" id="sbStationName">stamp book</h2>
+      <p class="sb-hint">press the button to add this stamp to your book.</p>
+      <button type="button" class="sb-press" aria-pressed="false">stamp this page</button>
+      <span class="sb-live sb-sr" aria-live="polite"></span>
+    </div>
+  </section>
+  <script>
+  /* Placement (2026-10-21): a page with <div id="sbStationMount"> (index: under
+     the skill sky) gets the station there instead of here. Moved during parse,
+     before the station paints; the mount reserved its height already. */
+  (function (m, s) { if (m && s) { m.appendChild(s); s.setAttribute('data-mounted', ''); } })(document.getElementById('sbStationMount'), document.getElementById('sbStation'));
+  </script>
+  <!-- <<< stamp-station -->
+  <!-- >>> shojo-footer -->
+  <!-- shojo footer decorations (css/shojo.css §19): inert and hidden unless the page has data-skin="shojo" in gremlin mode -->
+  <span class="footer-torn" aria-hidden="true"></span>
+  <div class="footer-peeks" aria-hidden="true"><img class="footer-peek footer-peek-light" src="/images/stickers/hero/writing.webp" alt="" width="86" height="90" loading="lazy" decoding="async" style="--x:62%;--r:-8deg;--d:0.2s"><img class="footer-peek footer-peek-dark" src="/images/stickers/hero/writing-dark.webp" alt="" width="86" height="90" loading="lazy" decoding="async" style="--x:62%;--r:-8deg;--d:0.2s"><img class="footer-peek footer-peek-light" src="/images/stickers/hero/talks.webp" alt="" width="86" height="112" loading="lazy" decoding="async" style="--x:74%;--r:6deg;--d:0.35s"><img class="footer-peek footer-peek-dark" src="/images/stickers/hero/talks-dark.webp" alt="" width="86" height="112" loading="lazy" decoding="async" style="--x:74%;--r:6deg;--d:0.35s"><img class="footer-peek footer-peek-light" src="/images/stickers/hero/anime.webp" alt="" width="86" height="92" loading="lazy" decoding="async" style="--x:85%;--r:-4deg;--d:0.5s"><img class="footer-peek footer-peek-dark" src="/images/stickers/hero/anime-dark.webp" alt="" width="86" height="92" loading="lazy" decoding="async" style="--x:85%;--r:-4deg;--d:0.5s"></div>
+  <!-- <<< shojo-footer -->
+  <div class="site-footer-inner">
+    <div class="footer-contact">
+      <!-- >>> shojo-footer-tapes --><span class="footer-tapes" aria-hidden="true"><span class="footer-tape footer-tape-a"></span><span class="footer-tape footer-tape-b"></span></span><!-- <<< shojo-footer-tapes -->
+      <h2 data-pro-text="Get in touch" data-gremlin-text="say hi &#10022;">Get in touch</h2>
+      <!-- >>> shojo-footer-sayhi --><svg class="pen-phrase footer-sayhi" viewBox="-85 -762 2607 1208" style="aspect-ratio:2607/1208" aria-hidden="true" focusable="false"><defs><mask id="footer-sayhi-mask" maskUnits="userSpaceOnUse" x="-3000" y="-3000" width="16000" height="9000"><g class="pp-pen" stroke-width="110"><path d="M-32,-183 -4,-207 17,-231 61,-315 95,-365 115,-386 138,-402 220,-435 256,-447 285,-452 315,-450 327,-447 339,-440 345,-434 348,-423 348,-407 344,-388 338,-376 328,-365"/><path d="M54,-274 64,-251 78,-235 151,-186 177,-162 189,-144 196,-126 196,-109 194,-97 176,-65 144,-33 94,-2 40,23 -0,30 -17,30 -29,26 -34,11 -34,-9 -28,-21 -16,-35"/><path d="M797,-183 766,-141 737,-109 716,-89 684,-64 648,-42 622,-31 592,-24 574,-27 565,-34 554,-50 550,-64 549,-88 559,-142 588,-242 591,-262 563,-227 493,-160 418,-95 380,-67 344,-46 311,-32 284,-30 264,-40 250,-59 243,-84 243,-116 249,-145 265,-177 317,-238 340,-259 373,-283 427,-316 464,-334 496,-345 537,-354 578,-356 613,-353 619,-350 626,-343"/><path d="M916,-312 849,-249 816,-212 797,-182 786,-149 777,-100 778,-78 783,-64 792,-52 806,-43 825,-37 845,-35 865,-38 887,-46 921,-70 1001,-149 1105,-272 1151,-320 1168,-331 1182,-332 1187,-329 1188,-316 1100,-133 1008,101 937,225 874,321 838,362 824,375 808,385 788,392 766,395 727,394 707,390 684,378 675,367 671,353 671,336 680,305 692,282 708,259 728,236 802,176 929,82 973,54 1071,2 1115,-27 1220,-113 1250,-142 1285,-183"/><path d="M1662,-183 1809,-315 2012,-464 2033,-481 2060,-509 2124,-586 2140,-614 2151,-647 2155,-670 2154,-680 2149,-695 2138,-706 2112,-712 2093,-710 2075,-704 2040,-679 1979,-619 1956,-592 1933,-558 1862,-434 1795,-305 1716,-62 1715,-48 1719,-48 1728,-57 1850,-206 1882,-242 1928,-280 1978,-312 2009,-327 2022,-329 2034,-322 2040,-311 2040,-296 2031,-262 2000,-207 1984,-174 1968,-123 1962,-87 1962,-67 1968,-44 1981,-28 1999,-20 2023,-20 2048,-26 2072,-38 2104,-62 2137,-92 2184,-139 2223,-183"/><path d="M2224,-183 2262,-213 2284,-236 2299,-265 2308,-306 2301,-293 2231,-121 2223,-83 2224,-66 2228,-50 2240,-30 2260,-18 2286,-12 2305,-15 2324,-22 2343,-34 2380,-65 2428,-118 2472,-183"/><path d="M2378,-476 2350,-438"/></g></mask></defs><g class="pp-ink"><path class="w0" d="M-29,-180 5,-198 15,-207 35,-235 72,-309 87,-333 117,-370 151,-394 240,-429 259,-435 291,-439 317,-432 323,-425 321,-418 313,-417 308,-419 308,-406 325,-384 322,-370 334,-360 358,-368 367,-374 381,-387 387,-398 388,-422 386,-434 376,-451 358,-462 311,-466 260,-462 215,-448 132,-413 99,-389 78,-365 50,-322 26,-273 3,-233 -34,-186Z"/><path class="w0" d="M45,-270 41,-246 45,-229 50,-220 67,-207 119,-178 135,-165 150,-147 157,-128 155,-96 138,-67 114,-43 99,-32 24,11 -1,17 -21,16 -19,17 -23,-15 -14,-32 -18,-37 -38,-23 -48,-1 -46,21 -38,35 -29,41 -19,43 15,44 53,40 81,30 142,-1 170,-18 194,-37 215,-60 226,-76 234,-94 237,-114 234,-134 227,-152 209,-176 167,-208 123,-232 107,-245 94,-261 62,-278Z"/><path class="w0" d="M790,-188 751,-173 745,-168 691,-104 670,-85 645,-67 592,-37 580,-39 571,-46 566,-55 562,-72 563,-96 575,-152 605,-261 590,-275 563,-280 536,-243 505,-212 426,-138 377,-97 334,-66 293,-42 281,-44 272,-49 261,-65 255,-86 255,-114 264,-149 281,-176 326,-229 348,-249 393,-281 433,-304 490,-330 539,-341 558,-343 587,-342 606,-344 620,-338 632,-348 630,-357 626,-360 588,-369 535,-367 493,-358 459,-346 408,-320 354,-286 323,-262 295,-233 249,-177 233,-139 229,-105 231,-73 243,-45 255,-30 273,-19 282,-17 304,-15 329,-17 342,-20 367,-31 408,-54 462,-95 521,-145 612,-233 617,-241 592,-248 579,-260 546,-145 536,-89 538,-61 546,-37 556,-24 576,-12 611,-9 639,-15 679,-31 727,-61 766,-94 796,-128 800,-136 804,-178Z"/><path class="w0" d="M911,-317 869,-307 828,-271 803,-247 773,-212 764,-198 750,-166 741,-131 737,-102 738,-78 746,-55 757,-40 773,-30 814,-21 845,-22 876,-28 900,-38 915,-48 1017,-147 1134,-286 1164,-314 1178,-320 1178,-316 1171,-310 1158,-310 1150,-318 1149,-324 1150,-318 1147,-311 1070,-157 975,85 908,207 838,314 799,365 784,375 775,379 753,383 710,378 697,372 686,361 683,351 685,329 697,299 710,277 748,235 850,155 945,87 988,61 1086,8 1114,-10 1237,-110 1272,-149 1287,-181 1283,-185 1254,-164 1195,-108 1116,-44 1073,-14 958,48 922,71 782,174 719,227 698,251 674,287 660,323 658,334 658,355 664,373 676,388 693,399 714,405 753,409 805,407 830,401 851,390 874,370 907,333 982,219 1046,107 1134,-118 1152,-159 1226,-307 1229,-319 1227,-333 1216,-347 1199,-352 1163,-343 1150,-336 1115,-304 985,-151 912,-79 875,-55 844,-48 823,-55 815,-62 812,-70 817,-82 817,-106 827,-156 839,-187 856,-212 908,-265 921,-307Z"/><path class="w1" d="M1665,-181 1703,-202 1825,-312 2020,-453 2056,-485 2122,-562 2135,-579 2152,-609 2166,-657 2167,-682 2165,-692 2153,-711 2134,-721 2101,-726 2066,-724 2042,-715 2021,-701 1993,-677 1947,-631 1930,-612 1897,-567 1825,-442 1765,-329 1740,-264 1679,-73 1674,-50 1686,-29 1718,-34 1732,-42 1870,-210 1891,-232 1935,-269 1985,-301 2016,-316 2020,-314 2014,-303 2010,-301 2001,-302 1999,-283 1991,-262 1949,-188 1926,-118 1921,-77 1924,-51 1935,-28 1943,-18 1953,-11 1964,-6 1986,-3 2034,-8 2061,-17 2079,-27 2137,-74 2186,-122 2206,-144 2225,-181 2221,-185 2187,-161 2137,-109 2072,-54 2036,-35 2022,-32 2002,-35 1998,-40 1997,-49 2002,-66 2003,-102 2015,-149 2031,-190 2060,-238 2073,-265 2079,-283 2081,-301 2078,-319 2074,-328 2059,-342 2040,-347 2005,-340 1987,-332 1943,-306 1884,-262 1840,-215 1761,-116 1712,-59 1743,-67 1754,-51 1753,-48 1824,-275 1836,-307 1907,-443 1971,-555 1995,-589 2042,-642 2090,-690 2104,-698 2111,-699 2126,-697 2136,-692 2140,-684 2141,-662 2132,-629 2114,-594 2044,-510 2011,-479 1824,-344 1793,-319 1685,-221 1660,-185Z"/><path class="w1" d="M2225,-180 2261,-196 2280,-211 2295,-229 2311,-261 2320,-294 2321,-307 2295,-328 2276,-322 2270,-315 2191,-122 2183,-85 2185,-60 2192,-36 2208,-16 2219,-9 2241,-1 2275,2 2308,-2 2329,-10 2351,-23 2397,-63 2438,-109 2454,-131 2463,-146 2475,-181 2469,-185 2443,-159 2400,-104 2354,-59 2318,-33 2301,-27 2286,-26 2272,-32 2263,-42 2261,-52 2265,-100 2337,-287 2321,-286 2295,-305 2287,-270 2278,-252 2268,-236 2246,-216 2222,-186Z"/><path class="w1" d="M2371,-481 2349,-472 2345,-467 2343,-443 2356,-433 2379,-442 2383,-447 2385,-471Z"/></g></svg><!-- <<< shojo-footer-sayhi -->
+      <p data-pro-text="Open to speaking invitations, interesting opportunities, and good collaborations. The fastest way to reach me is email." data-gremlin-text="open to opportunities, speaking gigs, and building weird things together. email is the fastest way to reach me &#10022;">Open to speaking invitations, interesting opportunities, and good collaborations. The fastest way to reach me is email.</p>
+      <a class="footer-email" href="mailto:sara@sarakay.me">sara@sarakay.me</a>
+      <div class="footer-socials">
+        <a href="https://github.com/ssskay" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
+        <a href="https://linkedin.com/in/ssskay" target="_blank" rel="noopener noreferrer">LinkedIn &#8599;</a>
+        <a href="https://www.researchgate.net/profile/Sara-Kay-4" target="_blank" rel="noopener noreferrer">ResearchGate &#8599;</a>
+        <a href="https://scholar.google.com/citations?user=ZbxPVZsAAAAJ" target="_blank" rel="noopener noreferrer">Google Scholar &#8599;</a>
+        <a href="https://newsletter.datagremlingobrr.com" target="_blank" rel="noopener noreferrer">Newsletter &#8599;</a>
+      </div>
+    </div>
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <div class="footer-col">
+        <h2 data-pro-text="Portfolio" data-gremlin-text="portfolio &#10022;">Portfolio</h2>
+        <a href="../work.html">Work</a>
+        <a href="../projects.html">Projects</a>
+        <a href="../case-studies.html">Case Studies</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="../Sara_Kay_Resume_2026.pdf" download>Resume (PDF)</a>
+      </div>
+      <div class="footer-col">
+        <h2 data-pro-text="Writing and talks" data-gremlin-text="writing + talks &#10022;">Writing and talks</h2>
+        <a href="../talks.html">Talks</a>
+        <a href="../writing.html">Writing</a>
+      </div>
+      <div class="footer-col">
+        <h2 data-pro-text="Recognition" data-gremlin-text="recognition &#10022;">Recognition</h2>
+        <a href="../testimonials.html">Testimonials</a>
+        <a href="../press.html">Press</a>
+      </div>
+      <div class="footer-col">
+        <h2 data-pro-text="Background" data-gremlin-text="background &#10022;">Background</h2>
+        <a href="../about.html">About</a>
+        <a href="../maker.html">Maker</a>
+        <a href="../volunteering.html">Volunteering</a>
+      </div>
+    </nav>
+  </div>
+  <div class="site-footer-base">
+    <span data-pro-text="&#169; 2026 Sara Kay. All rights reserved." data-gremlin-text="&#169; 2026 Sara Kay &#10022; pls don't steal my stuff">&#169; 2026 Sara Kay. All rights reserved.</span>
+    <nav class="footer-base-links" aria-label="Site information">
+      <a href="../index.html">Home</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="../everything.html">Everything</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="../accessibility.html">Accessibility</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="../meet.html" data-pro-text="Meet in Boston" data-gremlin-text="meet up in boston">Meet in Boston</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="../privacy.html">Privacy and Cookies</a>
+    </nav>
+    <span data-pro-text="Hand-built with vanilla HTML, CSS and JS. No frameworks." data-gremlin-text="handmade with vanilla html/css/js &#10022; no frameworks">Hand-built with vanilla HTML, CSS and JS. No frameworks.</span>
+  </div>
+  <!-- >>> shojo-footer-giant --><!-- giant signature cut 2026-09-30 (Sara: too much); script below no-ops without it -->
+<script id="shojo-footer">
+/* Plays the footer once when it scrolls into view (shojo gremlin only):
+   "say hi" and the giant signature write on, stickers pop up. Skipped (end
+   state shown) with the motion keycap off or OS reduced motion. */
+(function () {
+    var root = document.documentElement, f = document.querySelector('.site-footer');
+    if (!f || root.getAttribute('data-skin') !== 'shojo' || !window.IntersectionObserver) return;
+    var off = false; try { off = localStorage.getItem('sara-motion') === 'off'; } catch (e) {}
+    if (off || root.getAttribute('data-motion') === 'off' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    var bz = function (t, a, b) { return 3 * a * t * (1 - t) * (1 - t) + 3 * b * t * t * (1 - t) + t * t * t; };
+    var ease = function (x) { var lo = 0, hi = 1; for (var i = 0; i < 22; i++) { var m = (lo + hi) / 2; if (bz(m, .45, .2) < x) lo = m; else hi = m; } return bz((lo + hi) / 2, 0, 1); };
+    function prep(svg) {
+        if (!svg) return null;
+        var ink = svg.querySelector('.pp-ink'), pens = [].slice.call(svg.querySelectorAll('.pp-pen path')), L = [], st = [], tot = 0;
+        pens.forEach(function (p, i) { L[i] = p.getTotalLength(); if (i) { var a = pens[i - 1].getPointAtLength(L[i - 1]), b = p.getPointAtLength(0); tot += .18 * Math.hypot(b.x - a.x, b.y - a.y); } st[i] = tot; tot += L[i]; p.style.strokeDasharray = L[i] + ' ' + (L[i] + 10); p.style.strokeDashoffset = L[i]; });
+        ink.setAttribute('mask', 'url(#' + svg.querySelector('mask').id + ')');
+        return function (T, delay) { var t0 = null; requestAnimationFrame(function fr(now) { if (t0 === null) t0 = now; var k = Math.min(1, Math.max(0, (now - t0 - delay) / T)), D = ease(k) * tot;
+            pens.forEach(function (p, i) { p.style.strokeDashoffset = L[i] - Math.min(L[i], Math.max(0, D - st[i])); }); if (k < 1) requestAnimationFrame(fr); else ink.removeAttribute('mask'); }); };
+    }
+    if (root.getAttribute('data-mode') !== 'gremlin') return;
+    var say = prep(f.querySelector('.footer-sayhi')), giant = prep(f.querySelector('.footer-giant-sig'));
+    f.classList.add('foot-armed');
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (!e.isIntersecting) return; io.disconnect();
+        f.classList.add('foot-played'); if (say) say(1500, 150); if (giant) giant(2600, 300); }); }, { threshold: .25 });
+    io.observe(f);
+})();
+</script><!-- <<< shojo-footer-giant -->
+</footer>
+
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4BW750D92M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-4BW750D92M');
+    </script>
+
+    <script>
+        // View dropdown toggle
+        const viewToggle = document.getElementById('viewToggle');
+        const viewDropdown = document.getElementById('viewDropdown');
+
+        if (viewToggle) viewToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = viewToggle.getAttribute('aria-expanded') === 'true';
+            viewToggle.classList.toggle('active');
+            viewDropdown.classList.toggle('active');
+            viewToggle.setAttribute('aria-expanded', !isExpanded);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (viewToggle && !viewToggle.contains(e.target) && !viewDropdown.contains(e.target)) {
+                viewToggle.classList.remove('active');
+                viewDropdown.classList.remove('active');
+                viewToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        function updateDynamicText() {
+            const mode = document.documentElement.getAttribute('data-mode');
+
+            document.querySelectorAll('[data-pro-text]').forEach(el => {
+                const proText = el.getAttribute('data-pro-text');
+                const gremlinText = el.getAttribute('data-gremlin-text');
+                el.textContent = mode === 'pro' ? proText : gremlinText;
+            });
+        }
+
+        // Function to update active states on mode/theme buttons
+        function updateActiveStates() {
+            const currentMode = document.documentElement.getAttribute('data-mode');
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+
+            document.querySelectorAll('.mode-toggle').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === currentMode);
+            });
+
+            document.querySelectorAll('.theme-toggle').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === currentTheme);
+            });
+        }
+
+        document.querySelectorAll('.mode-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const currentMode = document.documentElement.getAttribute('data-mode');
+                const newMode = currentMode === 'pro' ? 'gremlin' : 'pro';
+
+                document.documentElement.setAttribute('data-mode', newMode);
+                localStorage.setItem('sara-mode', newMode);
+
+                updateDynamicText();
+                updateActiveStates();
+
+                // Close dropdown after selection
+                viewToggle.classList.remove('active');
+                viewDropdown.classList.remove('active');
+
+                // Reinitialize icons
+                lucide.createIcons();
+            });
+        });
+
+        // Theme toggle buttons
+        document.querySelectorAll('.theme-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('sara-theme', newTheme);
+
+                updateActiveStates();
+
+                // Close dropdown after selection
+                viewToggle.classList.remove('active');
+                viewDropdown.classList.remove('active');
+
+                // Reinitialize icons
+                lucide.createIcons();
+            });
+        });
+
+        // Initialize
+        updateDynamicText();
+        updateActiveStates();
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+    <script>
+        // Scroll-reveal — content is visible by default. This only animates elements
+        // in when the visitor is in gremlin mode and has not asked to reduce motion.
+        // If anything below fails, .reveal elements simply stay visible.
+        (function () {
+            try {
+                if (document.documentElement.getAttribute('data-mode') !== 'gremlin') return;
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                var targets = document.querySelectorAll('.reveal');
+                if (!targets.length || !('IntersectionObserver' in window)) return;
+                document.body.classList.add('js-reveal');
+                var io = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('in-view');
+                            io.unobserve(entry.target);
+                        }
+                    });
+                }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+                targets.forEach(function (t) { io.observe(t); });
+            } catch (e) { /* leave content visible */ }
+        })();
+    </script>
+
+    <!-- V2: inject + wire keycap mode/theme toggles (works on any page, no dependence on existing toggle JS) -->
+    <script>
+    (function(){
+      var vc = document.querySelector('.view-controls');
+      if (!vc) return;
+      function mkKey(id){ var b=document.createElement('button'); b.type='button'; b.className='view-key'; b.id=id; return b; }
+      var modeKey = document.getElementById('modeKey'); if(!modeKey){ modeKey = mkKey('modeKey'); vc.insertBefore(modeKey, vc.firstChild); }
+      var themeKey = document.getElementById('themeKey'); if(!themeKey){ themeKey = mkKey('themeKey'); vc.insertBefore(themeKey, modeKey.nextSibling); }
+      function lbl(){
+        var m = document.documentElement.getAttribute('data-mode') || 'gremlin';
+        var t = document.documentElement.getAttribute('data-theme') || 'light';
+        modeKey.textContent = m==='gremlin' ? 'gremlin ✦' : 'pro';
+        void 0; /* label is CSS-driven from data-theme (no flash) */
+        modeKey.setAttribute('aria-label','Toggle professional / gremlin mode');
+        themeKey.setAttribute('aria-label','Toggle light / dark theme');
+      }
+      function setM(m){ document.documentElement.setAttribute('data-mode',m); localStorage.setItem('sara-mode',m);
+        if(typeof updateDynamicText==='function'){try{updateDynamicText();}catch(e){}}
+        if(window.lucide&&lucide.createIcons){try{lucide.createIcons();}catch(e){}} lbl(); }
+      function setT(t){ document.documentElement.setAttribute('data-theme',t); localStorage.setItem('sara-theme',t); lbl(); }
+      modeKey.addEventListener('click',function(){ var m=document.documentElement.getAttribute('data-mode'); setM(m==='gremlin'?'pro':'gremlin'); });
+      themeKey.addEventListener('click',function(){ var t=document.documentElement.getAttribute('data-theme'); setT(t==='dark'?'light':'dark'); });
+      lbl();
+    })();
+    </script>
+
+    <!-- GA4 custom events (juicy data): downloads, contact, demos, toggles, talk expands -->
+    <script id="ga-custom-events">
+    (function(){
+      function ev(name, params){ if(typeof gtag==='function'){ try{ gtag('event', name, params||{}); }catch(e){} } }
+      document.addEventListener('click', function(e){
+        var t = e.target; if(!t || !t.closest) return;
+        var a = t.closest('a');
+        if(a){
+          var href = a.getAttribute('href') || '';
+          if(/Sara_Kay_Resume_2026\.pdf/i.test(href)) ev('cv_download', {location: location.pathname});
+          else if(/sara_kay\.csv/i.test(href)) ev('csv_download', {location: location.pathname});
+          else if(href.indexOf('mailto:')===0) ev('contact_click', {method:'email', location: location.pathname});
+          else if(/\/demos\//.test(href)) ev('demo_launch', {demo: href.replace(/.*\/demos\//,'').replace(/\/$/,''), location: location.pathname});
+        }
+        if(t.closest('#modeKey, [data-control=\"mode\"], .mode-toggle')) setTimeout(function(){ ev('mode_toggle', {mode: document.documentElement.getAttribute('data-mode')}); },0);
+        if(t.closest('#themeKey, [data-control=\"theme\"], .theme-toggle')) setTimeout(function(){ ev('theme_toggle', {theme: document.documentElement.getAttribute('data-theme')}); },0);
+        var th = t.closest('.thead');
+        if(th){ var node = th.closest('.tnode'); setTimeout(function(){ if(node && node.classList.contains('open')) ev('talk_expand', {talk: (th.textContent||'').trim().replace(/\s+/g,' ').slice(0,80)}); },0); }
+      }, true);
+    })();
+    </script>
+
+</body>
+</html>

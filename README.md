@@ -12,7 +12,7 @@ At the end of October 2026, AO3 went offline after a security incident, with [re
 
 So this is for anyone with AO3 withdrawal. It puts everything else you read (articles, papers, PDFs, ebooks, your own notes) in the layout you miss. It doesn't connect to AO3 and doesn't contain anyone's fic. It only reads files you put in it.
 
-**Demo:** [ssskay.github.io/not-ao3](https://ssskay.github.io/not-ao3/), built from the public-domain books and sample pages in [`demo-shelf/`](demo-shelf).
+**Demo:** [ssskay.github.io/not-ao3](https://ssskay.github.io/not-ao3/), built from the public-domain books, essays and sample pages in [`demo-shelf/`](demo-shelf).
 
 ![A work page](docs/screenshot-work.png)
 
@@ -93,7 +93,8 @@ Builds log to `logs/notao3.log`, one line per file with format, chapter count, w
 
 - The look is AO3's own stylesheet, `public/stylesheets/site/2.0` from [otwcode/otwarchive](https://github.com/otwcode/otwarchive), with the images it uses. Copyright the Organization for Transformative Works, GPL-2.0-or-later. The AO3 logo is not included.
 - This project is **not affiliated with the Organization for Transformative Works or the Archive of Our Own**. "Archive of Our Own" and "AO3" are theirs. The name here is a parody.
-- Demo books are public domain, from Project Gutenberg texts: *Alice's Adventures in Wonderland* (Lewis Carroll), *The Wisdom of Father Brown* (G. K. Chesterton), *The Adventures of Buster Bear* (Thornton W. Burgess). `data/common-words.txt` is a word list counted from the same public-domain sample.
+- The demo shelf is public domain apart from the pages written for it. Books and essays come from Project Gutenberg texts with the Gutenberg header and license removed (each work's Original link goes to its Gutenberg page): Lewis Carroll, G. K. Chesterton, Thornton W. Burgess, Jane Austen, William Blake, Sara Cone Bryant, Herman Melville, John Milton, William Shakespeare (First Folio spelling), Jonathan Swift, Henry David Thoreau, Thomas Paine, Ralph Waldo Emerson and Mark Twain. `data/common-words.txt` is a word list counted from the same kind of public-domain sample.
+- The Internet Historian case study is from [sarakay.me](https://sarakay.me/case-studies/internet-historian), included with permission because it's mine.
 - Everything here is licensed **GPL-2.0-or-later** (see [LICENSE](LICENSE)), matching the stylesheet it builds on.
 
 ---
