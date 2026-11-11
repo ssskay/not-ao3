@@ -41,6 +41,8 @@ So this is for anyone with AO3 withdrawal. It puts everything else you read (art
 
 Saved web pages keep the article and lose the site's menus, scripts, forms and footer.
 
+![Browse page with the Bible, a case study, a paper, a PDF, a text file and an EPUB](docs/screenshot-browse.png)
+
 ## Use it
 
 You need Python 3 and two packages:
