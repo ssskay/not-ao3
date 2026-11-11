@@ -1,0 +1,10 @@
+# your own files and everything built from them stay on your computer
+shelf/
+site/
+site.building/
+logs/
+audits/
+__pycache__/
+.DS_Store
+*.app/
+*.zip
