@@ -715,7 +715,18 @@ def drop_repeated_lines(md):
     return "\n".join(l for l in lines if l.strip() not in repeated)
 
 
+def is_junk_line(text):
+    """A short line that is just page furniture: "Share this", "Sign up for our newsletter", "Advertisement"."""
+    t = re.sub(r"[\[\]()*_#>|-]", " ", text).strip()
+    return 0 < len(t.split()) <= 8 and bool(NAV_JUNK.search(t))
+
+
+def strip_junk_html(h):
+    return re.sub(r"<(p|div|span|li|h\d)>([^<]{0,120})</\1>", lambda m: "" if is_junk_line(m.group(2)) else m.group(0), h)
+
+
 def tidy_markdown(md, title=""):
+    md = "\n".join(l for l in md.split("\n") if not is_junk_line(l))
     md = re.sub(r"(?m)^\s*\[?\s*(?:←|&larr;)\s*Back to [^\n]{0,80}$\n?", "", md)          # "← Back to ..." links
     md = re.sub(r"\[([^\]]+)\]\((?!https?:|mailto:|#)[^)]*\)", r"\1", md)                # relative links lead nowhere here
     md = re.sub(r"(?m)^\s*<!-- image -->\s*$\n?", "", md)                                 # docling image placeholders
@@ -753,14 +764,14 @@ def convert_html(path):
             junk = len(NAV_JUNK.findall(builtin_text))
             if coverage < 0.97 and junk == 0:
                 log.info("%s: built-in reader kept more of this page (trafilatura got %.0f%% of it)", path.name, coverage * 100)
-                return meta, [(t, raw_html_block(h)) for t, h in head.chapters], "built-in"
+                return meta, [(t, raw_html_block(strip_junk_html(h))) for t, h in head.chapters], "built-in"
             return meta, split_md_chapters(md), f"trafilatura {trafilatura.__version__}"
         log.info("%s: trafilatura found too little text, using the built-in reader", path.name)
     except ImportError:
         log.debug("trafilatura not installed (pip3 install trafilatura); using the built-in HTML reader")
     except Exception as ex:
         log.warning("%s: trafilatura failed (%s); using the built-in reader", path.name, ex)
-    return meta, [(t, raw_html_block(h)) for t, h in head.chapters], "built-in"
+    return meta, [(t, raw_html_block(strip_junk_html(h))) for t, h in head.chapters], "built-in"
 
 
 def raw_html_block(h):
@@ -1240,6 +1251,7 @@ class Site:
                f"<li class=\"dropdown\"><a href=\"{r('media/index.html')}\">Fandoms</a></li>"
                f"<li class=\"dropdown\"><a href=\"{r('works/index.html')}\">Browse</a></li>"
                f"<li class=\"dropdown\"><a href=\"{r('me.html')}\">Marked for Later</a></li>"
+               f"<li class=\"dropdown\"><a href=\"{r('works/new.html')}\">Post</a></li>"
                f"<li class=\"search\"><form class=\"search\" id=\"search\" role=\"search\" action=\"{r('works/index.html')}\" method=\"get\">"
                "<fieldset><p><label for=\"site_search\" class=\"landmark\">Work Search</label>"
                "<input class=\"text\" id=\"site_search\" name=\"q\" type=\"text\" placeholder=\"Search works\">"
@@ -1525,6 +1537,38 @@ class Site:
                f"<p><small>Saved from {e(self.name)}.</small></p></body></html>")
         (self.out / path).write_text(doc, encoding="utf-8")
 
+    def build_post_page(self):
+        here = "works/new.html"
+        fandoms = sorted({f for w in self.works for f in w["fandoms"]}, key=str.lower)
+        opts = "".join(f"<option value=\"{e(f)}\">" for f in fandoms)
+        ratings = "".join(f"<option>{r}</option>" for r in ("General Audiences", "Teen And Up Audiences", "Mature", "Explicit", "Not Rated"))
+        body = (
+            "<h2 class=\"heading\">Post New Work</h2>"
+            "<div id=\"nao-post-offline\" class=\"notice\" hidden><p>Posting works on a copy of this archive running on your own "
+            f"computer. This site is a static copy, so it can't save anything. To run your own: get the code from "
+            f"<a href=\"{REPO_URL}\">{e(REPO_URL.split('//')[1])}</a>, then double-click <b>Open Archive.command</b> "
+            "(Mac) or run <code>python3 notao3.py serve</code>. You can also drop files into its <code>shelf</code> folder.</p></div>"
+            "<form id=\"nao-post\" class=\"post work\" hidden><fieldset><legend>Work</legend><dl>"
+            "<dt><label for=\"nao-files\">Files</label></dt><dd><input type=\"file\" id=\"nao-files\" multiple "
+            "accept=\".md,.markdown,.txt,.html,.htm,.epub,.pdf\"><p class=\"footnote\">Markdown, text, saved web pages, EPUB or PDF.</p></dd>"
+            "<dt><label for=\"nao-urls\">Or links</label></dt><dd><textarea id=\"nao-urls\" rows=\"3\" "
+            "placeholder=\"https://... (one per line)\"></textarea><p class=\"footnote\">Articles, PDFs or EPUBs on the web. "
+            "Pages behind a login or a paywall usually won't come through.</p></dd>"
+            "</dl></fieldset><fieldset><legend>Tags</legend><dl>"
+            "<dt><label for=\"nao-fandom-in\">Fandom</label></dt><dd><input id=\"nao-fandom-in\" list=\"nao-fandom-list\" "
+            f"placeholder=\"Uncategorized Fandom\"><datalist id=\"nao-fandom-list\">{opts}</datalist>"
+            "<p class=\"footnote\">Becomes a folder in your shelf.</p></dd>"
+            f"<dt><label for=\"nao-rating\">Rating</label></dt><dd><select id=\"nao-rating\"><option value=\"\">(automatic)</option>{ratings}</select></dd>"
+            "<dt><label for=\"nao-tags\">Additional Tags</label></dt><dd><input id=\"nao-tags\" placeholder=\"comma, separated (leave empty for automatic tags)\"></dd>"
+            "</dl></fieldset><fieldset><legend>Preface</legend><dl>"
+            "<dt><label for=\"nao-title\">Title</label></dt><dd><input id=\"nao-title\" placeholder=\"(from the file)\"></dd>"
+            "<dt><label for=\"nao-author\">Creator</label></dt><dd><input id=\"nao-author\" placeholder=\"(from the file)\"></dd>"
+            "<dt><label for=\"nao-summary\">Summary</label></dt><dd><textarea id=\"nao-summary\" rows=\"3\" placeholder=\"(first lines of the work)\"></textarea>"
+            "<p class=\"footnote\">Title and summary are only used when you post one work at a time.</p></dd>"
+            "</dl></fieldset><p class=\"submit actions\"><input type=\"submit\" class=\"button\" value=\"Post\"></p>"
+            "<p id=\"nao-post-status\" class=\"nao-note\" aria-live=\"polite\"></p></form>")
+        self.write(here, "Post New Work", body, here, "works-new")
+
     def build_report(self):
         here = "report.html"
         self.issues = {w["id"]: check_work(w) for w in self.works}
@@ -1570,6 +1614,7 @@ class Site:
         self.build_media()
         self.build_me()
         self.build_report()
+        self.build_post_page()
         (self.out / ".nojekyll").write_text("")
         catalog = [{k: v for k, v in w.items() if k not in ("chapters", "file", "extra_tags", "auto_tags")}
                    | {"chapters": [c["title"] for c in w["chapters"]], "url_path": self.work_url(w)} for w in self.works]
@@ -1626,6 +1671,87 @@ def build(shelf, out, strict=False):
     return works, failed
 
 
+# ---------------------------------------------------------------- posting new works (local server only)
+
+MAX_POST_BYTES = 200 * 1024 * 1024
+URL_TYPES = {"text/html": ".html", "application/xhtml+xml": ".html", "application/pdf": ".pdf",
+             "application/epub+zip": ".epub", "text/plain": ".txt", "text/markdown": ".md"}
+
+
+def safe_name(s, default="work"):
+    s = re.sub(r"[^\w\s.\-()&,']", "", s, flags=re.U).strip().lstrip("._")
+    return re.sub(r"\s+", " ", s)[:80] or default
+
+
+def unique_path(folder, stem, ext):
+    p = folder / f"{stem}{ext}"
+    n = 2
+    while p.exists():
+        p = folder / f"{stem}-{n}{ext}"
+        n += 1
+    return p
+
+
+def fetch_url(url):
+    """Download an article (or PDF/EPUB) for posting. Returns (bytes, extension)."""
+    import urllib.request
+    if not re.match(r"(?i)^https?://", url):
+        raise ValueError("links need to start with http:// or https://")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (not-ao3 reader; +https://github.com/ssskay/not-ao3)"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = r.read(MAX_POST_BYTES + 1)
+        ctype = (r.headers.get_content_type() or "").lower()
+    if len(data) > MAX_POST_BYTES:
+        raise ValueError("that file is over 200 MB")
+    ext = URL_TYPES.get(ctype) or Path(urlparse(url).path).suffix.lower()
+    if ext not in FORMATS:
+        raise ValueError(f"this reader can't read {ctype or 'that kind of file'}")
+    return data, ext
+
+
+def post_works(payload, shelf):
+    """Save uploaded files and fetched links into the shelf, with a .meta for anything filled in on the form.
+    Returns ([saved paths], [error messages])."""
+    import base64
+    fandom = safe_name(payload.get("fandom") or "", "")
+    folder = shelf / fandom if fandom else shelf
+    folder.mkdir(parents=True, exist_ok=True)
+    items, errors = [], []
+    for f in payload.get("files") or []:
+        name = Path(f.get("name") or "upload").name
+        ext = Path(name).suffix.lower()
+        if ext not in FORMATS:
+            errors.append(f"{name}: this reader can't read {ext or 'files without an extension'}")
+            continue
+        try:
+            items.append((safe_name(Path(name).stem), ext, base64.b64decode(f.get("data") or ""), ""))
+        except ValueError:
+            errors.append(f"{name}: the upload came through damaged")
+    for url in [u.strip() for u in payload.get("urls") or [] if u.strip()]:
+        try:
+            data, ext = fetch_url(url)
+            u = urlparse(url)
+            stem = safe_name(Path(u.path).stem or u.netloc.replace("www.", ""))
+            items.append((stem, ext, data, url))
+        except Exception as ex:
+            errors.append(f"{url}: couldn't download it ({ex})")
+    one = len(items) == 1
+    meta_fields = {k: (payload.get(k) or "").strip() for k in ("title", "author", "tags", "rating", "summary", "warnings")}
+    saved = []
+    for stem, ext, data, url in items:
+        p = unique_path(folder, stem, ext)
+        p.write_bytes(data)
+        meta = {k: v for k, v in meta_fields.items() if v and (one or k in ("tags", "rating", "author", "warnings"))}
+        if url:
+            meta["url"] = url
+        if meta:
+            p.with_name(p.name + ".meta").write_text("".join(f"{k}: {re.sub(r'\s+', ' ', v)}\n" for k, v in meta.items()),
+                                                     encoding="utf-8")
+        log.info("posted %s (%s bytes)%s", p.relative_to(shelf), f"{len(data):,}", f" from {url}" if url else "")
+        saved.append(p)
+    return saved, errors
+
+
 # ---------------------------------------------------------------- serve
 
 def shelf_fingerprint(shelf):
@@ -1637,32 +1763,77 @@ def shelf_fingerprint(shelf):
     return h.hexdigest()
 
 
-def serve(shelf, out, port, open_browser=True, idle_hours=3.0):
+def serve(shelf_arg, out, port, open_browser=True, idle_hours=3.0):
     import http.server
     import socketserver
     import webbrowser
-    build(shelf, out)
-    last_hit = [time.time()]
+    state = {"shelf": pick_shelf(shelf_arg), "fp": None, "last_hit": time.time()}
+    lock = threading.Lock()
+    post_shelf = Path(shelf_arg).expanduser().resolve() if shelf_arg else ROOT / "shelf"
+
+    def rebuild(reason):
+        with lock:
+            state["shelf"] = pick_shelf(shelf_arg)      # shelf/ takes over from the demo once it has files
+            log.info("%s: building from %s", reason, state["shelf"])
+            works, _ = build(state["shelf"], out)
+            state["fp"] = shelf_fingerprint(state["shelf"]) + shelf_fingerprint(post_shelf)
+            return works
+
+    rebuild("start")
+    hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(out), **kw)
 
         def log_message(self, fmt, *args):
-            last_hit[0] = time.time()
+            state["last_hit"] = time.time()
             log.debug("http %s", fmt % args)
 
+        def send_json(self, code, obj):
+            body = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            if self.path.split("?")[0].endswith("/api/ping"):
+                return self.send_json(200, {"ok": True, "shelf": str(post_shelf)})
+            return super().do_GET()
+
+        def do_POST(self):
+            # only this computer's own pages may post: right host, same origin, JSON body
+            origin = self.headers.get("Origin") or ""
+            if (self.headers.get("Host") not in hosts or (origin and urlparse(origin).netloc not in hosts)
+                    or self.headers.get_content_type() != "application/json"
+                    or not self.path.split("?")[0].endswith("/api/post")):
+                return self.send_json(403, {"error": "not allowed"})
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > MAX_POST_BYTES * 1.4:
+                return self.send_json(413, {"error": "that upload is too big"})
+            try:
+                payload = json.loads(self.rfile.read(n) or b"{}")
+                saved, errors = post_works(payload, post_shelf)
+                if not saved:
+                    return self.send_json(400, {"error": "; ".join(errors) or "nothing to post"})
+                works = rebuild("new work posted")
+                rels = {p.relative_to(post_shelf).as_posix() for p in saved}
+                posted = [{"title": w["title"], "url": Site.work_url(None, w)} for w in works if w["source"] in rels]
+                return self.send_json(200, {"works": posted, "errors": errors})
+            except Exception as ex:
+                log.exception("posting failed")
+                return self.send_json(500, {"error": str(ex)})
+
     def watch():
-        fp = shelf_fingerprint(shelf)
         while True:
             time.sleep(5)
             try:
-                now = shelf_fingerprint(shelf)
-                if now != fp:
-                    log.info("shelf changed, rebuilding")
-                    build(shelf, out)
-                    fp = now
-                if idle_hours and time.time() - last_hit[0] > idle_hours * 3600:
+                now = shelf_fingerprint(pick_shelf(shelf_arg)) + shelf_fingerprint(post_shelf)
+                if now != state["fp"] and not lock.locked():
+                    rebuild("shelf changed")
+                if idle_hours and time.time() - state["last_hit"] > idle_hours * 3600:
                     log.info("no page loads for %.0f hours, stopping", idle_hours)
                     os._exit(0)
             except Exception as ex:
@@ -1671,7 +1842,7 @@ def serve(shelf, out, port, open_browser=True, idle_hours=3.0):
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.ThreadingTCPServer(("127.0.0.1", port), Handler) as httpd:
         url = f"http://127.0.0.1:{port}/"
-        log.info("serving %s (only this computer can reach it). Add files to %s and refresh.", url, shelf)
+        log.info("serving %s (only this computer can reach it). Post works there, or add files to %s.", url, post_shelf)
         threading.Thread(target=watch, daemon=True).start()
         if open_browser:
             webbrowser.open(url)
@@ -1810,6 +1981,30 @@ def selftest():
               ev2 and "EDITED-BY-SELFTEST" in ev2["chapters"][-1]["html"] and ev2["clean_edited"])
         check("an unedited clean copy is remade when the original changes",
               split_front_matter(fg.read_text())[0].get("clean_source_sha") != old_sha)
+        # posting from the browser: an upload and a link
+        import base64
+        import http.server
+        import socketserver
+        fixture = td / "web"
+        fixture.mkdir()
+        (fixture / "story.html").write_text((shelf / "Notes" / "cluttered-news.html").read_text())
+        handler = lambda *a, **kw: http.server.SimpleHTTPRequestHandler(*a, directory=str(fixture), **kw)
+        http.server.SimpleHTTPRequestHandler.log_message = lambda *a: None
+        with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            port = httpd.server_address[1]
+            saved, errs = post_works({"files": [{"name": "posted note.md",
+                                                 "data": base64.b64encode(b"Posted from the browser, a short note.").decode()},
+                                                {"name": "virus.exe", "data": ""}],
+                                      "urls": [f"http://127.0.0.1:{port}/story.html"],
+                                      "fandom": "../Posted Things", "tags": "Posted"}, shelf)
+            httpd.shutdown()
+        check("posting saves uploads and links into the shelf",
+              len(saved) == 2 and all(p.exists() and shelf in p.parents for p in saved), ", ".join(str(p.name) for p in saved))
+        check("posting refuses unreadable file types and keeps fandom folders inside the shelf",
+              any("virus.exe" in x for x in errs) and all(p.parent.name == "Posted Things" for p in saved), "; ".join(errs))
+        meta_url = next((p.with_name(p.name + ".meta").read_text() for p in saved if p.suffix == ".html"), "")
+        check("a posted link remembers where it came from", f"url: http://127.0.0.1:{port}/story.html" in meta_url)
         raw_html = [p for p in out.rglob("download/*") if p.name == "evil.html"]
         check("saved web pages are not re-published with their scripts", not raw_html)
         dl = list(out.glob("works/*/download/*.html"))
@@ -1855,7 +2050,7 @@ def main(argv=None):
     if args.cmd == "build":
         build(pick_shelf(args.shelf), Path(args.out), args.strict)
     elif args.cmd == "serve":
-        serve(pick_shelf(args.shelf), Path(args.out), args.port, not args.no_open, args.idle_hours)
+        serve(args.shelf, Path(args.out), args.port, not args.no_open, args.idle_hours)
     elif args.cmd == "selftest":
         sys.exit(0 if selftest() else 1)
     else:

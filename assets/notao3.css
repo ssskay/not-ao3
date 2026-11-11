@@ -39,3 +39,11 @@
 .nao-report-item { border: 1px solid #ddd; padding: .5em 1em; margin: .75em 0; }
 .nao-issues { list-style: disc; padding-left: 1.5em; margin: .3em 0; }
 .nao-report code, .nao-note code { background: #eee; padding: 0 .3em; }
+#nao-post fieldset { background: #ddd; border: 1px solid #bbb; border-radius: .25em; padding: .5em 1em; margin: 1em 0; }
+#nao-post legend { font-weight: bold; }
+#nao-post dl { display: grid; grid-template-columns: 10em 1fr; gap: .6em 1em; align-items: start; }
+#nao-post input[type=text], #nao-post input:not([type]), #nao-post textarea, #nao-post select { width: 100%; max-width: 40em; box-sizing: border-box; }
+#nao-post .footnote { font-size: .85em; color: #555; margin: .2em 0 0; }
+@media only screen and (max-width: 42em) { #nao-post dl { grid-template-columns: 1fr; } }
+#nao-post textarea { min-height: 0; height: 5em; }
+#nao-post .footnote { text-align: left; }

@@ -46,6 +46,8 @@ python3 notao3.py build      # just build into site/
 python3 notao3.py selftest   # build the demo shelf and check every page
 ```
 
+**Adding works:** click **Post** in the header, then upload files or paste links to articles. The archive saves them into `shelf/` (the fandom you type becomes a folder) and opens the new work. Posting only works on a copy running on your own computer, because a static host like GitHub Pages can't save files. You can also drop files straight into `shelf/`.
+
 Your files go in `shelf/`. If `shelf/` is empty, the demo shelf is used. `shelf/` and `site/` are in `.gitignore`, so your own files never end up in the repo.
 
 The built site is plain HTML with relative links. It works opened straight from the folder, on any static host, or in a subfolder.

@@ -103,3 +103,57 @@
     decorate(document);
   }
 })();
+
+/* Post New Work: only works when the archive is running on this computer (notao3.py serve). */
+(function () {
+  "use strict";
+  var form = document.getElementById("nao-post");
+  if (!form) return;
+  var root = document.body.getAttribute("data-root") || "./";
+  var offline = document.getElementById("nao-post-offline");
+  var status = document.getElementById("nao-post-status");
+  fetch(root + "api/ping").then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function () { form.hidden = false; })
+    .catch(function () { offline.hidden = false; });
+
+  function readFile(f) {
+    return new Promise(function (resolve, reject) {
+      var rd = new FileReader();
+      rd.onload = function () { resolve({ name: f.name, data: String(rd.result).split(",")[1] || "" }); };
+      rd.onerror = function () { reject(rd.error); };
+      rd.readAsDataURL(f);
+    });
+  }
+  var val = function (id) { return (document.getElementById(id).value || "").trim(); };
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var files = Array.prototype.slice.call(document.getElementById("nao-files").files);
+    var urls = val("nao-urls").split(/\s+/).filter(Boolean);
+    if (!files.length && !urls.length) { status.textContent = "Add a file or a link first."; return; }
+    var btn = form.querySelector("input[type=submit]");
+    btn.disabled = true;
+    status.textContent = "Posting" + (urls.length ? " (downloading links)" : "") + " and rebuilding the archive...";
+    Promise.all(files.map(readFile)).then(function (data) {
+      return fetch(root + "api/post", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: data, urls: urls, fandom: val("nao-fandom-in"), rating: val("nao-rating"),
+          tags: val("nao-tags"), title: val("nao-title"), author: val("nao-author"), summary: val("nao-summary") })
+      });
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) { status.textContent = "Couldn't post: " + (res.j.error || "unknown error"); return; }
+        console.info("[notao3] posted", res.j);
+        var works = res.j.works || [];
+        if (works.length === 1 && !(res.j.errors || []).length) { location.href = root + works[0].url; return; }
+        status.innerHTML = "";
+        works.forEach(function (w) {
+          var a = document.createElement("a"); a.href = root + w.url; a.textContent = w.title;
+          var p = document.createElement("p"); p.textContent = "Posted: "; p.appendChild(a); status.appendChild(p);
+        });
+        (res.j.errors || []).forEach(function (e) { var p = document.createElement("p"); p.textContent = e; status.appendChild(p); });
+      })
+      .catch(function (e) { btn.disabled = false; status.textContent = "Couldn't post: " + e; });
+  });
+})();
