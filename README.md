@@ -94,8 +94,10 @@ Builds log to `logs/notao3.log`, one line per file with format, chapter count, w
 - The look is AO3's own stylesheet, `public/stylesheets/site/2.0` from [otwcode/otwarchive](https://github.com/otwcode/otwarchive), with the images it uses. Copyright the Organization for Transformative Works, GPL-2.0-or-later. The AO3 logo is not included.
 - This project is **not affiliated with the Organization for Transformative Works or the Archive of Our Own**. "Archive of Our Own" and "AO3" are theirs. The name here is a parody.
 - The demo shelf is public domain apart from the pages written for it. Books and essays come from Project Gutenberg texts with the Gutenberg header and license removed (each work's Original link goes to its Gutenberg page): Lewis Carroll, G. K. Chesterton, Thornton W. Burgess, Jane Austen, William Blake, Sara Cone Bryant, Herman Melville, John Milton, William Shakespeare (First Folio spelling), Jonathan Swift, Henry David Thoreau, Thomas Paine, Ralph Waldo Emerson and Mark Twain. `data/common-words.txt` is a word list counted from the same kind of public-domain sample.
-- The Internet Historian case study is from [sarakay.me](https://sarakay.me/case-studies/internet-historian), included with permission because it's mine.
-- Everything here is licensed **GPL-2.0-or-later** (see [LICENSE](LICENSE)), matching the stylesheet it builds on.
+- The Bible is the [World English Bible](https://ebible.org/Scriptures/), which eBible.org dedicated to the public domain. The text is unchanged; only the layout is new (one chapter per book, verse numbers inline).
+- *Precautionary Savings Behavior During the COVID-19 Pandemic* is by Lena Gan and Sara Kay, *Applied Business and Economics Journal* 3(1), 2025, [doi:10.61089/abej.2025.3.145](https://doi.org/10.61089/abej.2025.3.145), published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It was reformatted from the PDF: running headers removed, and the tables and figures left out (each has a note pointing to the original).
+- The Internet Historian case study is my own writing, saved from [sarakay.me](https://sarakay.me/case-studies/internet-historian). It isn't public domain and isn't covered by the GPL license below.
+- Everything else here is licensed **GPL-2.0-or-later** (see [LICENSE](LICENSE)), matching the stylesheet it builds on.
 
 ---
 

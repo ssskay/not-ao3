@@ -30,5 +30,8 @@
     margin: .5em 0 0; padding: 0; white-space: normal; }
   .blurb dl.stats dd { margin-right: .6em; }
 }
-#workskin .userstuff dt { font-weight: bold; margin-top: .5em; }
-#workskin .userstuff dd { margin-left: 1.5em; }
+#workskin .userstuff dt { font-weight: bold; }
+#workskin .userstuff dl { display: grid; grid-template-columns: max-content 1fr; gap: .2em 1em; margin: 1em 0; }
+#workskin .userstuff dl > div { display: contents; }
+#workskin .userstuff dl dt { margin-top: 0; }
+#workskin .userstuff dl dd { margin-left: 0; }

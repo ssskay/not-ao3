@@ -126,19 +126,22 @@ class Cleaner(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.out, self.text, self.skip = [], [], 0
+        self.skip_tag = None
         self.stack = []
 
     def handle_starttag(self, tag, attrs):
         if self.skip:
-            if tag in DROP_SUBTREE:
+            if tag == self.skip_tag:
                 self.skip += 1
             return
-        if tag in DROP_SUBTREE:
-            self.skip = 1
-            return
-        if tag not in ALLOWED:
-            return
         a = dict(attrs)
+        decorative = (a.get("aria-hidden") or "").lower() == "true" or "hidden" in a
+        if (tag in DROP_SUBTREE or decorative) and tag not in VOID:
+            # menus, scripts, and anything the page itself hides from screen readers (pull quotes, eyebrow labels)
+            self.skip, self.skip_tag = 1, tag
+            return
+        if tag not in ALLOWED or decorative:
+            return
         keep = ""
         if tag == "a" and a.get("href"):
             href = a["href"].strip()
@@ -170,8 +173,10 @@ class Cleaner(HTMLParser):
 
     def handle_endtag(self, tag):
         if self.skip:
-            if tag in DROP_SUBTREE:
+            if tag == self.skip_tag:
                 self.skip -= 1
+                if not self.skip:
+                    self.skip_tag = None
             return
         if tag not in ALLOWED or tag in VOID or tag not in self.stack:
             return  # also covers <a> tags that were dropped on the way in
@@ -398,6 +403,8 @@ def split_html_chapters(cleaned, min_heads=2):
                 out.append(("Preface", pre))
             for i in range(1, len(parts), 2):
                 out.append((html_text(parts[i]).strip(), parts[i + 1] if i + 1 < len(parts) else ""))
+            # cutting at headings leaves wrapper tags half-open; re-clean each piece so it closes its own tags
+            out = [(t, clean_html(h)[0]) for t, h in out]
             return merge_short_preface(out)
     return [("", cleaned)]
 
@@ -481,24 +488,78 @@ def read_epub(path):
     return doc
 
 
+PDF_SECTION = re.compile(r"^(?:\d{1,2}\.?\s+[A-Z][^.]{2,90}|(?:Abstract|References|Bibliography|Conclusions?|Discussion"
+                         r"|Acknowledge?ments|Appendix(?: [A-Z])?)\s*:?)$")
+PDF_SUBSECTION = re.compile(r"^\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\.?\s+[A-Z][^.]{2,90}$")
+
+
+def strip_running_lines(pages):
+    """Drop running headers/footers: lines (numbers ignored) that repeat on many pages, plus bare page numbers."""
+    norm = lambda l: re.sub(r"[\d\s.…]+", " ", l).strip().lower()
+    counts = Counter()
+    for p in pages:
+        counts.update({norm(l) for l in p.split("\n") if norm(l)})
+    limit = max(3, int(len(pages) * 0.4))
+    repeated = {k for k, c in counts.items() if c >= limit and len(k) > 3} if len(pages) >= 4 else set()
+    out = []
+    for p in pages:
+        keep = [l for l in p.split("\n") if norm(l) not in repeated and not re.fullmatch(r"\s*\d{1,4}\s*", l)]
+        out.append("\n".join(keep))
+    if repeated:
+        log.debug("pdf: dropped %d running header/footer lines", len(repeated))
+    return out
+
+
 def pdf_paragraphs(text):
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
     lines = [l.rstrip() for l in text.split("\n")]
     width = max((len(l) for l in lines if l.strip()), default=80)
-    paras, cur = [], []
+    blocks, cur = [], []
+
+    def flush():
+        if cur:
+            blocks.append(("p", re.sub(r"\s+", " ", " ".join(cur)).strip()))
+            cur.clear()
     for l in lines:
-        if not l.strip():
-            if cur:
-                paras.append(" ".join(cur))
-                cur = []
+        st = l.strip()
+        if not st:
+            flush()
             continue
-        cur.append(l.strip())
+        if PDF_SUBSECTION.match(st):
+            flush()
+            blocks.append(("h3", st))
+            continue
+        cur.append(st)
         if re.search(r"[.!?:\"'”’)]$", l) and len(l) < width * 0.75:
-            paras.append(" ".join(cur))
-            cur = []
-    if cur:
-        paras.append(" ".join(cur))
-    return "".join(f"<p>{e(p, quote=False)}</p>" for p in paras if p.strip())
+            flush()
+    flush()
+    return "".join(f"<{t}>{e(x, quote=False)}</{t}>" for t, x in blocks if x)
+
+
+def split_pdf_sections(text):
+    """No bookmarks: split at numbered section headings ("2. Literature Review") and References etc."""
+    lines = text.split("\n")
+    heads, last = [], 0
+    for i, l in enumerate(lines):
+        st = l.strip()
+        if not PDF_SECTION.match(st) or len(st) > 70 or st.endswith(("—", "-", ",")):
+            continue
+        m = re.match(r"(\d{1,2})\.?\s", st)
+        if m:  # numbered headings must count up 1, 2, 3 ... (skips footnotes, list items and table rows)
+            if int(m.group(1)) != last + 1:
+                continue
+            last = int(m.group(1))
+        heads.append(i)
+    if len(heads) < 3:
+        return None
+    out = []
+    if "\n".join(lines[:heads[0]]).strip():
+        out.append(("Front Matter", "\n".join(lines[:heads[0]])))
+    for n, i in enumerate(heads):
+        end = heads[n + 1] if n + 1 < len(heads) else len(lines)
+        title = re.sub(r"^\d{1,2}\.?\s+", "", lines[i].strip()).rstrip(":")
+        out.append((title, "\n".join(lines[i + 1:end])))
+    return out
 
 
 def read_pdf(path):
@@ -518,7 +579,7 @@ def read_pdf(path):
         pass
     doc.meta = {k: v for k, v in {"title": g("/Title"), "author": g("/Author"), "summary": g("/Subject"),
                                   "tags": g("/Keywords"), "published": created}.items() if v}
-    pages = [(p.extract_text() or "") for p in r.pages]
+    pages = strip_running_lines([(p.extract_text() or "") for p in r.pages])
     marks = []
     try:
         for item in r.outline:
@@ -538,7 +599,11 @@ def read_pdf(path):
             body = re.sub(rf"^\s*{re.escape(title)}\s*\n", "", body, count=1)
             doc.chapters.append((title.strip(), pdf_paragraphs(body)))
     else:
-        doc.chapters.append(("", pdf_paragraphs("\n\n".join(pages))))
+        sections = split_pdf_sections("\n\n".join(pages))
+        if sections:
+            doc.chapters = [(t, pdf_paragraphs(body)) for t, body in sections]
+        else:
+            doc.chapters.append(("", pdf_paragraphs("\n\n".join(pages))))
     return doc
 
 
