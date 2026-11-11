@@ -1,10 +1,23 @@
 # I Can't Believe It's Not AO3
 
-A reader that turns a folder of files into a website laid out like the [Archive of Our Own](https://archiveofourown.org): articles, papers, notes and books get blurbs, fandoms, tags, chapters, kudos and Mark for Later.
+**Rating:** General Audiences\
+**Archive Warning:** Creator Chose Not To Use Archive Warnings\
+**Fandom:** Archive of Our Own (Outage Survivors)\
+**Additional Tags:** AO3 Withdrawal, Coping Mechanisms, Not Fic, Your PDFs Are Fic Now, The Bible Is One Work With 66 Chapters, Moby-Dick Is Also Here For Some Reason, Kudos Stay In Your Browser, Tags Written By A Python Script, Work In Progress\
+**Language:** English, Python\
+**Chapters:** 1/?
+
+**Summary:**
+
+> Suffering from AO3 withdrawal? Now any doc can be from AO3.
+
+Drop your articles, papers, notes, EPUBs and PDFs into a folder (or hit **Post** and paste a link) and they come back as works on a site laid out like the [Archive of Our Own](https://archiveofourown.org): blurbs, the four little squares, fandoms, chapters, tags, kudos and Mark for Later. Your 25-page PDF on household savings finally gets the Additional Tags it deserves.
 
 ![Home page](docs/screenshot-home.png)
 
-Drop files into a folder. Each file becomes a work, each top-level folder becomes a fandom, and the site fills in the rest: chapters from the file's headings or bookmarks, characters from names that keep coming up, and tags from the words that set the work apart.
+Each file becomes a work, each top-level folder becomes a fandom, and the site fills in the rest: chapters from the file's headings or bookmarks, characters from names that keep coming up, and tags from the words that set the work apart. It guessed "Mock Turtle" for Alice in Wonderland all by itself.
+
+*Disclaimer: I don't own AO3. The Organization for Transformative Works does, along with the stylesheet this borrows (GPL-2.0-or-later, credited below). Not affiliated, just a fan.*
 
 ## Why this exists
 
